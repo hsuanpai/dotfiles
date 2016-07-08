@@ -1,0 +1,191 @@
+#!/tool/pandora64/bin/bash
+
+#echo "CMD: '$0 $@'"
+
+## Default variables                                                                                                {{{1
+_workarea="${REPO_PATH:+$REPO_PATH}"
+_create_tags=""
+_create_cscope=""
+_update_tags=""
+_filelist=${_workarea}/.tag_filelist
+_tagfile=${_workarea}/.tags
+_tagdirs=(${_workarea}/libs/verif ${_workarea}/ch)
+
+## Helper functions                                                                                                 {{{1
+_print_help_() {                                                                                                  # {{{2
+  echo "Usage:"
+  echo "  `basename $0` [OPTIONS]"
+  echo
+  echo "Options:"
+  echo "  -h                     Print this help"
+  echo "  -c, --create           Create both ctags and cscope database"
+  echo "      --create-tags      Create ctags"
+  echo "      --create-cscope    Create cscope database"
+  echo "  -u, --update           Update both ctags and cscope database"
+  echo "      --update-tags      Update ctags"
+  echo "      --update-cscope    Update cscope database"
+  echo "  -w                     Use the specified dir as work-area. If this is not specified, defaults to \$REPO_PATH"
+}
+# }}}2
+
+
+## Parse Arguments                                                                                                  {{{1
+for _i in "$@"; do
+  if [[ $_i =~ ^-h$ ]] || [[ $_i =~ ^--help$ ]]; then
+    _print_help_
+    exit 0
+  fi
+done
+
+# Clean up temp files
+> $_filelist
+
+
+while (( $# > 0 )); do
+  #echo "DEBUG: Arg:'$1'"
+  case $1 in
+    --create|-c)
+      _create_tags="1"
+      _create_cscope="1"
+      _update=""
+      ;;
+
+    --create-tags)
+      _create_tags="1"
+      ;;
+
+    --create-cscope)
+      _create_cscope="1"
+      ;;
+
+    -w)
+      shift;
+      _workarea=$1
+      ;;
+
+    --update|-u)
+      _update_tags="1"
+      _create_cscope="1"
+      _create=""
+      ;;
+
+    --update-tags)
+      _update_tags="1"
+      ;;
+
+    -*)
+      echo -e "ERROR: Invalid option: '$1'"
+      _print_help_
+      exit 1;
+      ;;
+
+    *)
+      _tagdirs=(${_tagdirs[@]} "$1")
+      ;;
+  esac
+  shift
+done
+#echo $@
+#cat $_filelist
+#echo "${_tagdirs[@]}"
+
+if [[ -z $_workarea ]]; then
+  echo "Work area is not specified. REPO_PATH is also not set!"
+  exit 1
+elif [[ $_workarea != $REPO_PATH ]]; then
+  #echo "Booting into workarea '$_workarea'"
+  . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
+fi
+
+export CSCOPE_DB=${_workarea}/.cscope.out
+
+## Create _filelist                                                                                                 {{{1
+if [[ (-n $_update_tags) && (-f $_tagfile) ]]; then
+  if [[ ! -s $_filelist ]]; then
+    # grep for depot as it'll get rid of the No opened files message
+    p4 opened 2> /dev/null | sed 's/#.*$//' | command xargs p4 where | cut -d " " -f3 >| $_filelist
+  fi
+
+  # Remove older tags
+  if [[ -f $_tagfile ]]; then
+    while read; do
+      sed -i "\:${REPLY}:d" $_tagfile
+    done < $_filelist
+  fi
+
+elif [[ ! -s $_filelist ]]; then
+  # Create list of files to create tags for
+  find ${_tagdirs[@]} -type f -wholename '*unittest*' -prune -o -type f \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) >| $_filelist
+  #echo $_tagfile
+  # Follow symlinks for generate files
+  #find ${_tagdirs[@]} -type l -wholename '*unittest*' -prune -o -type l \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) -exec readlink '{}' \; >> $_filelist
+fi
+
+
+## Generate tags                                                                                                    {{{1
+# ---------+------------------------------------------------------------------------------------------------------------
+#   fields | Shows the following information about the tag entry. + includes it and - excludes it                 # {{{2
+# ---------+------------------------------------------------------------------------------------------------------------
+#        a | Access (or export) of class members
+#        f | File-restricted scoping [enabled]
+#        i | Inheritance information
+#        k | Kind of tag as a single letter [enabled]
+#        K | Kind of tag as full name
+#        l | Language of source file containing tag
+#        m | Implementation information
+#        n | Line number of tag definition
+#        s | Scope of tag definition [enabled]
+#        S | Signature of routine (e.g. prototype or parameter list)
+#        t | Type and name of a variable or typedef as "typeref:" field [enabled]
+#        z | Include the "kind:" key in kind field
+# ---------+------------------------------------------------------------------------------------------------------------
+#
+# ---------+------------------------------------------------------------------------------------------------------------
+#    kinds | kinds of tags (particular to the language) to either include or exclude from the output              # {{{2
+# ---------+------------------------------------------------------------------------------------------------------------
+#        c | classes
+#        d | macro definitions
+#        e | enumerators (values inside an enumeration)
+#        f | function definitions
+#        g | enumeration names
+#        l | local variables [off]
+#        m | class, struct, and union members
+#        n | namespaces
+#        p | function prototypes [off]
+#        s | structure names
+#        t | typedefs
+#        u | union names
+#        v | variable definitions
+#        x | external and forward variable declarations [off]
+# ---------+------------------------------------------------------------------------------------------------------------
+# }}}1
+
+
+(
+if [[ -n $_create_tags ]]; then
+  #echo /tool/pandora64/latest/bin/ctags ${_update_tags:+-a} --languages=c++ --fields=+afimnsSt --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
+  ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
+  ~kshenoy/bin/gtags -f $_filelist 2> /dev/null &
+  #command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':echo "Updated ctags"<CR>'
+fi
+
+# Clean-up the tags file by deleting fold markers etc.
+if [[ -f $_tagfile ]]; then
+  sed -i 's:\s*\\/\\/\s*{{{[0-9]*\$::' $_tagfile
+fi
+) &
+
+
+## Generate cscope database                                                                                         {{{1
+(
+if [[ -n $_create_cscope ]]; then
+  #echo $CSCOPE_DB
+  cscope -bqk -i $_filelist -f $CSCOPE_DB 2> /dev/null
+  command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':cscope reset<CR>'
+fi
+) &
+# }}}1
+
+wait
+#command rm -f $_filelist
+#command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':echo "Updated tags"<CR>'

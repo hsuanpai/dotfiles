@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+# SYNTAX: run_batch <P4 dir> <Changelist>
+#   P4 Work area - The work area to run the sim in
+#   Changelist - The changelist to update to before running
+
+# Automatically exit script on error
+set -e
+
+function print_help() {
+  echo "Usage:"
+  echo "    `basename $0` [OPTIONS]"
+  echo
+  echo "Options:"
+  echo "    -h    Print this help"
+  echo "    -n    Number of jobs to submit"
+}
+
+# Defaults
+_num_sims=100
+_jobspec=""
+
+while getopts ":n:h" opt; do
+  case $opt in
+    n)
+      _num_sims=${OPTARG}
+      ;;
+    h)
+      print_help
+      exit
+      ;;
+    :)
+      echo "  ERROR: Option -${OPTARG} requires an argument" >&2
+      exit 1
+      ;;
+    \?)
+      echo "  ERROR: Invalid option: -${OPTARG}" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Remove all option arguments and leave "$@" with just the non-option arguments
+shift $((OPTIND-1))
+
+_jobspec="$1"
+
+_batch=0
+while (( $_batch < 10 )); do
+  if (( $(lsf_bjobs | wc -l) < 875 )); then
+    ~/bin/rerun -f ${_jobspec} &
+    ((++_batch));
+    sleep 60;
+  else
+    sleep 300;
+  fi;
+done

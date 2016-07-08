@@ -1,0 +1,109 @@
+#!/tool/pandora64/bin/perl -l
+
+#=======================================================================================================================
+# Documentation                                                                                                     {{{1
+#
+=head1 NAME
+
+ paddr
+
+=head1 AUTHOR
+
+ Kartik Shenoy
+
+=head1 SYNOPSIS
+
+ paddr [OPTIONS] {address}
+
+=head1 DESCRIPTION
+
+ Dump all the tag, index, slice etc. information given a 64bit input address
+
+=head1 OPTIONS
+
+  -v, --verbose       Verbose mode. Print values of all arguments
+
+=cut
+# }}}1
+
+
+## Modules
+use Getopt::Long;
+use Pod::Usage;
+
+Getopt::Long::Configure("bundling");
+#Getopt::Long::Configure("pass_through");
+
+
+## Pragmas
+use strict;
+#use warnings;
+#use diagnostics;
+use Data::Dumper;
+
+
+#=======================================================================================================================
+# Command-line parameter handling                                                                                   {{{1
+#
+my %opts = (
+  'verbose' => 0,
+);
+
+GetOptions(
+  'help|h|?'   => sub { pod2usage( -verbose => 1, -exitval => 0 ); },
+  'test|t',
+  'verbose|v!',
+) or pod2usage( -verbose => 1 ) && exit;
+
+# Dump the input arguments
+print Dumper \%opts if ($opts{verbose});
+
+
+#=======================================================================================================================
+# Main Code                                                                                                         {{{1
+#
+sub GetBits {
+  my $num    = $_[0];
+  my $msb    = $_[1];
+  my $lsb    = $_[2];
+  my $offset = 0;
+  $offset += $_[3] if defined($_[3]);
+
+  my $mask = (1 << ($msb - $lsb + 1)) - 1;
+  my $ret  = ((($num >> $lsb) & $mask) << $offset);
+}
+
+my @str;
+my $addr = hex($ARGV[0]);
+push(@str, sprintf " |                 |           %8s |           %s |", "8M L3", "8M L3 (1/2)");
+push(@str, sprintf " | Tag             | [47:16] 0x%8x | [   47:16] 0x%8x |", GetBits($addr, 47, 16), GetBits($addr, 47, 16));
+push(@str, sprintf " | Interface       | [   18] 0x%8x | [      18] 0x%8x |", GetBits($addr, 18, 18), GetBits($addr, 18, 18));
+push(@str, sprintf " | L3TagBankIndex  | [17:11] 0x%8x | [   16:10] 0x%8x |", GetBits($addr, 17, 11), GetBits($addr, 16, 10));
+push(@str, sprintf " | L3TagBank       | [10: 8] 0x%8x |              %8s |", GetBits($addr, 10,  8), "*1");
+push(@str, sprintf " | L3DataBankIndex | [17:10] 0x%8x | [   16:10] 0x%8x |", GetBits($addr, 17, 10), GetBits($addr, 16, 10));
+push(@str, sprintf " | L3DataBank      | [ 9: 8] 0x%8x |              %8s |", GetBits($addr,  9,  8), "*2");
+push(@str, sprintf " | L3Slice         | [ 7: 6] 0x%8x | [    7: 6] 0x%8x |", GetBits($addr,  7,  6), GetBits($addr,  7,  6));
+push(@str, sprintf " | L3LogicalIndex  | [17: 6] 0x%8x | [18,16: 6] 0x%8x |", GetBits($addr, 18,  6), GetBits($addr, 18, 18).GetBits($addr, 16,  6));
+push(@str, sprintf " | L3SliceIndex    | [17: 8] 0x%8x | [18,16: 8] 0x%8x |", GetBits($addr, 18,  8), GetBits($addr, 18, 18).GetBits($addr, 16,  8));
+push(@str, sprintf " | L2Index         | [15: 6] 0x%8x | [   15: 6] 0x%8x |", GetBits($addr, 15,  6), GetBits($addr, 15,  6));
+push(@str,       "\n *1 : The TagBank  is a two-bit field and is a function of Addr[10:8] and the BankDis bits");
+push(@str,         " *2 : The DataBank is a one-bit field and is a function of Addr[ 9:8] and the BankDis bits");
+
+my $sep = $str[0]; s/[|]/+/g, s/(?<!^)[^+]/-/g, for $sep;
+splice(@str, 0, 0, $sep);
+splice(@str, 2, 0, $sep);
+splice(@str, -2, 0, $sep);
+
+map {
+  s/0x(\s+)/${1}0x/g;
+  print;
+} @str;
+
+
+#=======================================================================================================================
+# Clean-up
+#
+#close $fin;
+#close $fout;
+
+exit 0;
