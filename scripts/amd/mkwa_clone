@@ -13,6 +13,8 @@ function print_help() {
   echo "  -c    Update both Source and Target work-areas to the specified changelist before running"
   echo "  -s    Use the specified dir as the Source work-area"
   echo "  -t    Use the specified dir as the Target work-area instead of using \$REPO_PATH"
+  echo
+  echo "FIXME: Currently only works for aspen_highlands_trunk"
 }
 
 # Defaults
@@ -140,7 +142,7 @@ if (( $targ_create > 0 )); then
   fi
   command cd $targ
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash
-  p4_mkwa -configuration_id aspen/aspen_trunk@$upd_cl
+  p4_mkwa -configuration_id aspen_highlands/aspen_highlands_trunk@$upd_cl
 else
   command cd $targ
   echo -e "\n${fg_green}[Bootenv into Target work-area: $PWD]${reset}"
