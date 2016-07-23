@@ -89,6 +89,8 @@ done
 shift $((OPTIND-1))
 
 # Determine which CL to update to ______________________________________________________________________________________
+src_proj=$(grep -Po "\w+(?=/)" ${src}/configuration_id)
+src_branch=$(grep -Po "(?<=/)\w+(?=@)" ${src}/configuration_id)
 src_cl=$(grep -Po "(?<=@)\d+" ${src}/configuration_id)
 if [[ (! $src_cl =~ [0-9]+) || ("$src_cl" == "0") ]]; then
   echo "ERROR: Unable to determine source work-area changelist"
@@ -96,13 +98,19 @@ if [[ (! $src_cl =~ [0-9]+) || ("$src_cl" == "0") ]]; then
 fi
 
 if [[ -f ${targ}/configuration_id ]]; then
+  targ_proj=$(grep -Po "\w+(?=/)" ${targ}/configuration_id)
+  targ_branch=$(grep -Po "(?<=/)\w+(?=@)" ${targ}/configuration_id)
   targ_cl=$(grep -Po "(?<=@)\d+" ${targ}/configuration_id)
+
+  if [[ "$src_proj" != "$targ_proj" ]]; then
+    echo -e "ERROR: Source and Target workareas belong to different projects\n" >&2
+    exit 1
+  fi
 else
   targ_create=1;
 fi
 
 if (( ${upd_cl} < ${src_cl}  )); then upd_cl=${src_cl};  fi
-if (( ${upd_cl} < ${targ_cl} )); then upd_cl=${targ_cl}; fi
 if (( ${upd_cl} > ${src_cl}  )); then src_upd=1;         fi
 if (( ${upd_cl} > ${targ_cl} )); then targ_upd=1;        fi
 
@@ -113,6 +121,7 @@ echo "  Update  : $src_upd"
 echo "Target    : $targ"
 echo "  Create  : $targ_create"
 echo "  Update  : $targ_upd"
+echo
 
 
 # Source ===============================================================================================================
@@ -142,11 +151,16 @@ if (( $targ_create > 0 )); then
   fi
   command cd $targ
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash
-  p4_mkwa -configuration_id aspen_highlands/aspen_highlands_trunk@$upd_cl
+  p4_mkwa -configuration_id ${src_proj}/${src_branch}@${upd_cl}
 else
   command cd $targ
   echo -e "\n${fg_green}[Bootenv into Target work-area: $PWD]${reset}"
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
+
+  if [[ "$src_branch" != "$targ_branch" ]]; then
+    echo "  Source and Target workareas on a different branch. Will try to change Target workarea's branch\n"
+    p4_mkwa -change_branch ${src_branch}
+  fi
 
   if (( $targ_upd > 0 )); then
     echo -e "\n${fg_green}[Updating Target work-area to CL=${upd_cl}]${reset}"
