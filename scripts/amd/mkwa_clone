@@ -49,6 +49,10 @@ while getopts ":c:s:t:hv" opt; do
       ;;
 
     s)
+      if [[ ! -d ${OPTARG} ]]; then
+        echo "ERROR: Source ($OPTARG) work-area does not exist";
+        exit 1;
+      fi
       src=$(readlink -f ${OPTARG})
       if [[ ! -f ${src}/configuration_id ]]; then
         echo "ERROR: Source ($src) work-area is not a valid Perforce repository";
@@ -58,7 +62,11 @@ while getopts ":c:s:t:hv" opt; do
       ;;
 
     t)
-      targ=$(readlink -f ${OPTARG})
+      if [[ -d ${OPTARG} ]]; then
+        targ=$(readlink -f ${OPTARG})
+      else
+        targ=${OPTARG}
+      fi
       #echo "Targ: $targ"
       ;;
 
