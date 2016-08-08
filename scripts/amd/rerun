@@ -233,7 +233,7 @@ chomp( $opts{'cmd'} );
 
 # Grab options from the run_job command ___________________________________________________________________________  {{{
 if ( $opts{'ljd'} ) {
-  ( my $ljd_model ) = `grep -s -m 1 model $opts{'file'}` =~ /<model>([^<]+)<\/model>/;
+  ( my $ljd_model ) = `grep -s -m 1 '<model>' $opts{'file'}` =~ /<model>([^<]+)<\/model>/;
   if ( $opts{'model'} eq "" ) {
     print "Model not specified. Obtaining it from the jobspec file...\n" if $opts{'verbose'};
     $opts{'model'}  = $ljd_model;

@@ -163,7 +163,7 @@ fi
 
 (
 if [[ -n $_create_tags ]]; then
-  #echo /tool/pandora64/latest/bin/ctags ${_update_tags:+-a} --languages=c++ --fields=+afimnsSt --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
+  # echo ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
   ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
   ~kshenoy/bin/gtags -f $_filelist 2> /dev/null &
   #command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':echo "Updated ctags"<CR>'
