@@ -10,22 +10,17 @@ function print_help() {
   echo
   echo "Options:"
   echo "  -h    Print this help"
-  echo "  -c    Update both Source and Target work-areas to the specified changelist before running"
   echo "  -s    Use the specified dir as the Source work-area"
   echo "  -t    Use the specified dir as the Target work-area instead of using \$REPO_PATH"
-  echo
-  echo "FIXME: Currently only works for aspen_highlands_trunk"
 }
 
 # Defaults
 src=""
-src_upd=0
 src_cl=0
 targ=${REPO_PATH:-$PWD}
 targ_create=0
 targ_upd=0
 targ_cl=0
-upd_cl=0
 summary=0
 verbose=1
 
@@ -44,10 +39,6 @@ reset=$(tput sgr0)
 echo
 while getopts ":c:s:t:hv" opt; do
   case $opt in
-    c)
-      upd_cl=${OPTARG}
-      ;;
-
     s)
       if [[ ! -d ${OPTARG} ]]; then
         echo "ERROR: Source ($OPTARG) work-area does not exist";
@@ -118,14 +109,11 @@ else
   targ_create=1;
 fi
 
-if (( ${upd_cl} < ${src_cl}  )); then upd_cl=${src_cl};  fi
-if (( ${upd_cl} > ${src_cl}  )); then src_upd=1;         fi
-if (( ${upd_cl} > ${targ_cl} )); then targ_upd=1;        fi
+targ_upd=$(( ${src_cl} != ${targ_cl} ))
 
 # Print the input options ______________________________________________________________________________________________
-echo "Common CL : $upd_cl"
 echo "Source    : $src"
-echo "  Update  : $src_upd"
+echo "  CL      : $src_cl"
 echo "Target    : $targ"
 echo "  Create  : $targ_create"
 echo "  Update  : $targ_upd"
@@ -137,11 +125,6 @@ echo
 cd $src
 echo -e "\n${fg_green}[Bootenv into Source work-area: $PWD]${reset}"
 . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
-
-if (( $src_upd > 0 )); then
-  echo -e "\n${fg_green}[Updating Source work-area to CL=${upd_cl}...]${reset}"
-  p4w update_env @$upd_cl
-fi
 
 ## Copy files opened in Source
 echo -e "\n${fg_green}[Create list of files opened/edited in Source work-area...]${reset}"
@@ -159,7 +142,7 @@ if (( $targ_create > 0 )); then
   fi
   command cd $targ
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash
-  p4_mkwa -configuration_id ${src_proj}/${src_branch}@${upd_cl}
+  p4_mkwa -configuration_id ${src_proj}/${src_branch}@${src_cl}
 else
   command cd $targ
   echo -e "\n${fg_green}[Bootenv into Target work-area: $PWD]${reset}"
@@ -171,8 +154,8 @@ else
   fi
 
   if (( $targ_upd > 0 )); then
-    echo -e "\n${fg_green}[Updating Target work-area to CL=${upd_cl}]${reset}"
-    p4w update_env @$upd_cl
+    echo -e "\n${fg_green}[Updating Target work-area to CL=${src_cl}]${reset}"
+    p4w update_env @$src_cl
   fi
 fi
 
