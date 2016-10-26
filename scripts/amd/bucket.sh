@@ -41,8 +41,10 @@ while getopts ":sh" opt; do
       exit 1
       ;;
   esac
-  shift $((OPTIND-1))
 done
+
+# Remove all option arguments and leave "$@" with just the non-option arguments
+shift $((OPTIND-1))
 
 (( $# > 0 )) && args="$@"
 
