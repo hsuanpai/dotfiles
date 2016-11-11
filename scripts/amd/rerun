@@ -58,7 +58,7 @@
       --nowtf        Do not run WhyTheFail if build fails
   -y, --yaml         Enable logging via amdmsg_config.yaml (default).
                      The yaml file to be used can be specified as an optional argument.
-                     Defaults to /proj/aspen_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml
+                     Defaults to /proj/ch_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml
       --noyaml       Disable logging (Delete amdmsg_config.yaml file)
 
 =cut
@@ -103,7 +103,7 @@ my %opts = (                                                                    
   'verbose'     => 0,
   'vericom'     => 1,
   'wtf'         => 1,
-  'yaml'        => "/proj/aspen_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml",
+  'yaml'        => "/proj/ch_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml",
   'yaml_f'      => 0, # We use this option to identify when the --yaml option was specified
 );
 $opts{'file'} = "sim.out"    unless ( -e $opts{'file'} );
@@ -354,7 +354,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
         exit($exit_code >> 8);
       } else {
         # Generate tags and cscope.out if build succeeds
-        system("tail -n4 build_$opts{'model'}.log");
+        system("tail -n3 build_$opts{'model'}.log");
         system("~kshenoy/bin/gentags --create $ENV{'STEM'}/build/$opts{'model'} &") if $opts{'tags'};
       }
     }

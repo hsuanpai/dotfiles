@@ -181,7 +181,7 @@ fi
 if [[ -n $_create_cscope ]]; then
   #echo $CSCOPE_DB
   cscope -bqk -i $_filelist -f $CSCOPE_DB 2> /dev/null
-  command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':cscope reset<CR>'
+  # command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':cscope reset<CR>'
 fi
 ) &
 # }}}1
