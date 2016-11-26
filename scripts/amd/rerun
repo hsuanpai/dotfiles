@@ -462,6 +462,7 @@ if ( $opts{'run'} ) {
   # Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
   if ($opts{'buildloc'} >= 1) {
+    die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-e $opts{'builddir'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
 
