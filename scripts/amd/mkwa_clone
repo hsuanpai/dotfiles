@@ -173,6 +173,9 @@ while read; do
 done < ${pipe}
 
 # Clean-up =============================================================================================================
-echo -e "\n${fg_green}[Cleaning up...]${reset}"
-command rm ${pipe} &> /dev/null
-exit 0
+function finish() {
+  echo -e "\n${fg_green}[Cleaning up...]${reset}"
+  command rm ${pipe} &> /dev/null
+}
+trap finish EXIT
+
