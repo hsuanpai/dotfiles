@@ -23,8 +23,9 @@
 
     -h               Print this help
     -s, --summarize  Summarize results. Just show the number of failures of each signature.
-                     Don't print the failing directories
+                     Don't print the failing directories. Equivalent to "-n 0".
     -n, --num-fails  Only print the specified number of fastest failing directories per signature. (Overrides -s)
+               --cd  Go to the fastest failing sim
 
 =cut
 # }}}1
@@ -39,6 +40,7 @@ use Pod::Usage;
 use Cwd;
 use Cwd 'abs_path';
 use File::Basename;
+# use File::chdir;
 use Data::Dumper;
 
 Getopt::Long::Configure("bundling");
@@ -49,19 +51,20 @@ Getopt::Long::Configure("bundling");
 # Option handling                                                                                                   {{{1
 #=======================================================================================================================
 my %opts = (                                                                                                       # {{{
-  'summarize' => 0,
-  'num-fails' => -1,
+  'cd'        => 0,
+  'num_fails' => -1,
 );
 # }}}
 
 GetOptions(                                                                                                        # {{{
   \%opts,
-  'summarize|s!',
-  'num-fails|n=i'   =>  sub { $opts{$_[0]} = $_[1]; $opts{'summarize'} = 0; },
+  # 'cd!'            =>  sub { $opts{$_[0]} = 1; $opts{'num_fails'} = 1; },
+  'num-fails|n=i'  =>  sub { return if $opts{'cd'}; $opts{'num_fails'} = $_[1]; },
+  'summarize|s!'   =>  sub { return if ($opts{'cd'} || ($opts{'num_fails'} >= 0)); $opts{'num_fails'} = 0; },
 ) or (pod2usage(-verbose => 1) && exit 1);
 push (@ARGV, ".") if ($#ARGV == -1);
 
-#print Dumper \%opts;
+# print Dumper \%opts;
 # }}}
 
 
@@ -146,9 +149,14 @@ foreach my $dir (@ARGV) {
     #printf "* (%${sig_num_width}d)  Unknown\n", $unknown;
     print "************************************************************************************************************************\n\n";
 
-    if (  !$opts{summarize}
+    # if (num_fails < 0) ==> a limit hasn't been specified and all fails must be printed out
+    # if (num_fails > 0) ==> a limit has been specified and that many fails must be printed out
+    if (  ($opts{'num_fails'} != 0)
        && ($failed > 0)
        ) {
+      my $fastest_fail_cycle = 0;
+      my $fastest_fail_path  = "";
+
       foreach my $signature (sort keys %scoreboard) {
         print "------------------------------------------------------------------------------------------------------------------------\n";
         print "* $signature\n";
@@ -157,14 +165,27 @@ foreach my $dir (@ARGV) {
         if ($scoreboard{$signature}[-1][0] > 0) {
           $cycle_width = int(log($scoreboard{$signature}[-1][0])/log(10)) + 1;
         }
+
         my $count=0;
         foreach my $fail (@{$scoreboard{$signature}}) {
           printf "<%${cycle_width}d>  %s\n", $fail->[0], $fail->[1];
           $count++;
-          last if ($count == $opts{'num-fails'});
+
+          # if (num_fails < 0) then we'll never meet this if-condition and all fails get printed out
+          last if ($count == $opts{'num_fails'});
         }
         print "\n";
+
+        # if (  ($fastest_fail_cycle == 0)
+        #    || ($fastest_fail_cycle > $scoreboard{$signature}[0][0])
+        #    ) {
+        #   $fastest_fail_cycle = $scoreboard{$signature}[0][0];
+        #   $fastest_fail_path  = $scoreboard{$signature}[0][1];
+        # }
       }
+
+      # print "$fastest_fail_path\n" if $opts{'cd'};
+      # chdir $fastest_fail_path if $opts{'cd'};
     }
   }
 }

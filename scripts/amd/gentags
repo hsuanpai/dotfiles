@@ -9,7 +9,16 @@ _create_cscope=""
 _update_tags=""
 _filelist=${_workarea}/.tag_filelist
 _tagfile=${_workarea}/.tags
-_tagdirs=(${_workarea}/libs/verif ${_workarea}/ch)
+_tagdirs=()
+for i in \
+  ${_workarea}/libs/verif \
+  ${_workarea}/ch         \
+  ; do
+  if [[ -e ${i} ]] && [[ -d ${i} ]]; then
+    _tagdirs=(${_tagdirs[@]} "$i")
+  fi
+done
+
 
 ## Helper functions                                                                                                 {{{1
 _print_help_() {                                                                                                  # {{{2
@@ -113,12 +122,16 @@ if [[ (-n $_update_tags) && (-f $_tagfile) ]]; then
     done < $_filelist
   fi
 
-elif [[ ! -s $_filelist ]]; then
+elif [[ ! -s $_filelist ]] && (( ${#_tagdirs[@]} > 0 )); then
   # Create list of files to create tags for
   find ${_tagdirs[@]} -type f -wholename '*unittest*' -prune -o -type f \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) >| $_filelist
   #echo $_tagfile
   # Follow symlinks for generate files
   #find ${_tagdirs[@]} -type l -wholename '*unittest*' -prune -o -type l \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) -exec readlink '{}' \; >> $_filelist
+fi
+
+if [[ ! -s $_filelist ]]; then
+  return
 fi
 
 
