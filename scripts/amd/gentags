@@ -131,7 +131,7 @@ elif [[ ! -s $_filelist ]] && (( ${#_tagdirs[@]} > 0 )); then
 fi
 
 if [[ ! -s $_filelist ]]; then
-  return
+  exit 1
 fi
 
 
