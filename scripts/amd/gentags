@@ -109,7 +109,7 @@ fi
 export CSCOPE_DB=${_workarea}/.cscope.out
 
 ## Create _filelist                                                                                                 {{{1
-if [[ (-n $_update_tags) && (-f $_tagfile) ]]; then
+if [[ -n $_update_tags ]] && [[ -f $_tagfile ]]; then
   if [[ ! -s $_filelist ]]; then
     # grep for depot as it'll get rid of the No opened files message
     p4 opened 2> /dev/null | sed 's/#.*$//' | command xargs p4 where | cut -d " " -f3 >| $_filelist

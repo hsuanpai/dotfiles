@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-#=======================================================================================================================
-# Documentation                                                                                                     {{{1
-#=======================================================================================================================
+##=======================================================================================================================
+## Documentation                                                                                                    {{{1
+##=======================================================================================================================
 =head1 NAME
 
  rerun
@@ -26,6 +26,7 @@
                          Overrides --delete
   -b, --build            Build model before running
       --buildloc         Build model locally in the specified path/Use the local build for the run_job command
+      --nobuildloc       Don't build the model locally (default)
   -c, --clean            Clean model and rebuild before running
                          Implies --build unless --norun is specified
   -C, --clean_all        Clean all models and rebuild before running
@@ -40,8 +41,8 @@
   -f, --file             Name of file to pick up the run_job command from
                          Defaults to tb_sim and failing that, to sim.out and summary.rj
                          When a jobspec file is specified, --noyaml is set by default
-      --dump             Dump waves
-      --nodump           Do not dump waves. Defaults to this unless a value is forced
+      --fsdb             Dump waves
+      --nofsdb           Do not dump waves. Defaults to this unless a value is forced
       --lsf              Submit the job to LSF (default)
       --nolsf            Run the job locally
   -m, --model            Use the specified model instead of the one obtained from the run_job command
@@ -84,7 +85,7 @@ Getopt::Long::Configure("bundling");
 $Data::Dumper::Sortkeys = 1;
 
 
-# Default values for options ===========================================================================================
+## Default values for options ===========================================================================================
 my %opts = (                                                                                                       # {{{
   'add'              =>  "",
   'build'            =>  0,
@@ -167,55 +168,55 @@ GetOptions(                                                                     
 
 print "INFO: Ignoring extra arguments '@ARGV'\n" if ($#ARGV >= 0);
 
-# Force options
-# |------+-----------+-------------------------------------------------------------------------------------|
-# | yaml | yaml_file | Description                                                                         |
-# |------+-----------+-------------------------------------------------------------------------------------|
-# |    1 | == ""     | The user has specified --yaml but not provided a file.                              |
-# |      |           | Copy the default amdmsg_config.yaml file; any yaml file present will be overwritten |
-# |    1 | != ""     | The user forced the --yaml option. Copy the amdmsg_config.yaml file specified       |
-# |    0 | -         | The user used neither option -> use all defaults                                    |
-# |   -1 | -         | The user forced the --noyaml option. Delete the amdmsg_config.yaml file             |
-# |------+-----------+-------------------------------------------------------------------------------------|
+## Force options
+## |------+-----------+-------------------------------------------------------------------------------------|
+## | yaml | yaml_file | Description                                                                         |
+## |------+-----------+-------------------------------------------------------------------------------------|
+## |    1 | == ""     | The user has specified --yaml but not provided a file.                              |
+## |      |           | Copy the default amdmsg_config.yaml file; any yaml file present will be overwritten |
+## |    1 | != ""     | The user forced the --yaml option. Copy the amdmsg_config.yaml file specified       |
+## |    0 | -         | The user used neither option -> use all defaults                                    |
+## |   -1 | -         | The user forced the --noyaml option. Delete the amdmsg_config.yaml file             |
+## |------+-----------+-------------------------------------------------------------------------------------|
 
-# |----------+---------------------------------------------------------------------------------------------------|
-# | buildloc | Description                                                                                       |
-# |----------+---------------------------------------------------------------------------------------------------|
-# |       -1 | User used the --nobuildloc option. Do not build locally.                                          |
-# |        0 | Neither --buildloc nor --nobuildloc was used. Follow previous run_job command                     |
-# |        1 | User used --buildloc option without any argument. Check the run_job command for -buildloc switch. |
-# |          | If it hasn't been specified, default to $PWD/buildloc                                             |
-# |        1 | User used --buildloc option with an argument. Use that to build locally                           |
-# |----------+---------------------------------------------------------------------------------------------------|
+## |----------+---------------------------------------------------------------------------------------------------|
+## | buildloc | Description                                                                                       |
+## |----------+---------------------------------------------------------------------------------------------------|
+## |       -1 | User used the --nobuildloc option. Do not build locally.                                          |
+## |        0 | Neither --buildloc nor --nobuildloc was used. Follow previous run_job command                     |
+## |        1 | User used --buildloc option without any argument. Check the run_job command for -buildloc switch. |
+## |          | If it hasn't been specified, default to $PWD/buildloc                                             |
+## |        1 | User used --buildloc option with an argument. Use that to build locally                           |
+## |----------+---------------------------------------------------------------------------------------------------|
 
 
-# Check if bootenv has been done
+## Check if bootenv has been done
 die 'ERROR: $STEM is not set\n' unless defined($ENV{'STEM'});
 
 print  "[ TEST RUN ]\n" if $opts{'test'};
 
-# Processing arguments
+## Processing arguments
 $opts{'build'} ||= &get_build;
 
-# Dump the input arguments
+## Dump the input arguments
 print Dumper(\%opts) if $opts{'verbose'};
 
-# Algo:-
-# 1. Identify source i.e. jobspec file, command-line --cmd or run_job file and set the CMD string
-# 2. Identify the model
-# 3. Enable/disable logging via amdmsg_config.yaml
-# 4. Build the model
-# 5. Sanitize and construct the final CMD string
+## Algo:-
+## 1. Identify source i.e. jobspec file, command-line --cmd or run_job file and set the CMD string
+## 2. Identify the model
+## 3. Enable/disable logging via amdmsg_config.yaml
+## 4. Build the model
+## 5. Sanitize and construct the final CMD string
 
-# Identify the Source _____________________________________________________________________________________________  {{{
-# --cmd > ljd file | run_job file
+## Identify the Source _____________________________________________________________________________________________  {{{
+## --cmd > ljd file | run_job file
 if ( $opts{'cmd'} eq "" ) {
   if ( `grep -s jobspec $opts{'file'}` ) {
     $opts{'ljd'} = 1;
     $opts{'dsp'} = 0;
-    # Delete any amdmsg_config.yaml files when running a jobspec
+    ## Delete any amdmsg_config.yaml files when running a jobspec
     $opts{'yaml'} = -1;
-    # Force build without --vericom option
+    ## Force build without --vericom option
     $opts{'vericom'} = 0;
   }
 }
@@ -225,7 +226,7 @@ if ($opts{'ljd'}) {
   $opts{'lsf'} = 0;
 }
 
-# Get the command _________________________________________________________________________________________________  {{{
+## Get the command _________________________________________________________________________________________________  {{{
 if (  (  (  $opts{'build'}
          || $opts{'clean'}
          )
@@ -242,7 +243,7 @@ if (  (  (  $opts{'build'}
   } else {
     print "\nCommand not specified. Obtaining it from $opts{'file'} ...\n" if $opts{'verbose'};
     ( -e $opts{'file'} ) or pod2usage({ -verbose => 1, -message => "ERROR: File not found: $opts{'file'}\n"});
-    # Stop searching after 1st match
+    ## Stop searching after 1st match
     $opts{'cmd'} = `grep -s -m 1 run_job $opts{'file'}`;
     ( $opts{'cmd'} eq "" ) and pod2usage({ -verbose => 1, -message => "ERROR: Unable to locate the run_job command in $opts{'file'}\n" });
   }
@@ -250,7 +251,7 @@ if (  (  (  $opts{'build'}
 chomp( $opts{'cmd'} );
 
 
-# Identify the model ______________________________________________________________________________________________  {{{
+## Identify the model ______________________________________________________________________________________________  {{{
 if ( $opts{'ljd'} ) {
   ( my $ljd_model ) = `grep -s -m 1 '<model>' $opts{'file'}` =~ /<model>([^<]+)<\/model>/;
   if ( $opts{'model'} eq "" ) {
@@ -259,7 +260,7 @@ if ( $opts{'ljd'} ) {
     $opts{'model'} .= "_cov" if ($opts{'cov'} && ($opts{'model'} !~ /_cov$/));
   }
   else {
-    # Model needs to be replaced. We have to reset the cmd
+    ## Model needs to be replaced. We have to reset the cmd
     $opts{'model'} .= "_cov" if ($opts{'cov'} && ($opts{'model'} !~ /_cov$/));
     my $file_old = $opts{'file'};
     $opts{'file'} = getcwd() . '/' . basename( $file_old, ".xml" ) . '_' . $opts{'model'} . '.xml';
@@ -273,12 +274,12 @@ if ( $opts{'ljd'} ) {
 }
 print "Model: '$opts{'model'}'\n\n" if $opts{'verbose'};
 $opts{'cmd'} =~ s/(-model)\s*\w+/$1 $opts{'model'}/;
-$opts{'builddir'} = "$ENV{'STEM'}/build/$opts{'model'}" if ($opts{'buildloc'} != 1);
+$opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'buildloc'} != 1);
 
 
-# Include/Exclude the amdmsg_config.yaml file _____________________________________________________________________  {{{
+## Include/Exclude the amdmsg_config.yaml file _____________________________________________________________________  {{{
 if ($opts{'yaml'} >= 0) {
-  # Copy only if the yaml does not exist or --yaml is forced.
+  ## Copy only if the yaml does not exist or --yaml is forced.
   if (   ($opts{'yaml'} > 0)
      || !(-f "amdmsg_config.yaml")
      ) {
@@ -290,13 +291,13 @@ if ($opts{'yaml'} >= 0) {
   system('\rm amdmsg_config.yaml 2> /dev/null') unless $opts{'test'};
 }
 
-# Build locally? __________________________________________________________________________________________________  {{{
+## Build locally? __________________________________________________________________________________________________  {{{
 if (  (  ($opts{'buildloc'} == 1)
       && ($opts{'builddir'} eq "")
       )
    || ($opts{'buildloc'} == 0)
    ) {
-  # Check if run_job has the -buildloc option
+  ## Check if run_job has the -buildloc option
   if ($opts{'cmd'} =~ /-buildloc\s*(\S+)/) {
     $opts{'buildloc'} = 1;
     $opts{'builddir'} = $1 if ($1 ne "");
@@ -306,36 +307,41 @@ if (  (  ($opts{'buildloc'} == 1)
 }
 
 
-# Recompile _______________________________________________________________________________________________________  {{{
+## Recompile _______________________________________________________________________________________________________  {{{
 if ($opts{'recompile'}) {
   print "[ RECOMPILE ]\n";
-  die "ERROR: Couldn't find the build folder ($opts{'builddir'}) for model $opts{'model'}\n" unless (-d $opts{'builddir'});
 
   if ($opts{'recompile'} > 1) {
     my %recompile_files;
     foreach (`p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where`) {
-      my $build_mod_time = `stat -c '%X' $ENV{'STEM'}/build/$opts{'model'}/build.log`; chomp $build_mod_time;
+      my $build_mod_time = `stat -c '%Y' $ENV{'STEM'}/build/$opts{'model'}/build.log`; chomp $build_mod_time;
 
       my @i = split(' ');
       my $file = $i[-1]; my $file_basename = basename($file, ('.h', '.cc'));
-      my $file_mod_time = `stat -c '%X' $file`; chomp $file_mod_time;
-      if (  ($file_mod_time > $build_mod_time)
-         && (  !exists($recompile_files{$file_basename})
-            || ($file_mod_time > $recompile_files{$file_basename})
-            )
-         ) {
-        $recompile_files{$file_basename} = $file_mod_time;
+      if (-f dirname($file) . "/" . $file_basename . ".cc") {
+        my $file_mod_time = `stat -c '%Y' $file`; chomp $file_mod_time;
+        if (  ($file_mod_time > $build_mod_time)
+           && (  !exists($recompile_files{$file_basename})
+              || ($file_mod_time > $recompile_files{$file_basename})
+              )
+           ) {
+          $recompile_files{$file_basename} = $file_mod_time;
+        }
       }
     }
     @{$opts{'recompile_files'}} = (sort { $recompile_files{$b} <=> $recompile_files{$a} } keys %recompile_files);
   }
-  elsif (scalar $opts{'recompile_files'} == 0) {
-    # If file to recompiled hasn't been specified, try to grab the last modified file
-      my $last_mod_file=`for i in \$(p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where | command awk '{print \$3}'; do stat -c '%X %n' \$i; done | sort -nr | head -n1 | cut -d' ' -f2`;
-      chomp $last_mod_file;
-      push (@{$opts{'recompile_files'}}, basename($last_mod_file, ('.h', '.cc')));
+  elsif ($#{$opts{'recompile_files'}} == -1) {
+    ## If file to recompiled hasn't been specified, try to grab the last modified file
+    my $last_mod_file=`for i in \$(p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where | command awk '{print \$3}'); do stat -c '%Y %n' \$i; done | sort -nr | head -n1 | cut -d' ' -f2`;
+    chomp $last_mod_file;
+    my $last_mod_file_base = basename($last_mod_file, ('.h', '.cc'));
+    if (-f dirname($last_mod_file) . "/" . $last_mod_file_base . ".cc") {
+      push (@{$opts{'recompile_files'}}, $last_mod_file_base);
+    }
   } else {
-    $opts{'recompile_files'} = map(basename($_, ('.h', '.cc', '.cpp', '.c')), $opts{'recompile_files'});
+    # Enclose map in [...] to return an array reference instead of a plain array
+    $opts{'recompile_files'} = [ map(basename($_, ('.h', '.cc', '.cpp', '.c')), @{$opts{'recompile_files'}}) ];
   }
   # print Dumper(\@{$opts{'recompile_files'}});
 
@@ -343,15 +349,15 @@ if ($opts{'recompile'}) {
   foreach (@{$opts{'recompile_files'}}) {
     $cmd_recompile = "recompile -model $opts{'model'} $_";
     print "    $cmd_recompile\n";
-    $cmd_recompile .= " 2>&1 >| recompile_$_.log";
+    $cmd_recompile .= " 2>&1 >| recompile.log";
 
     unless ($opts{'test'}) {
       system '\rm recompile.log 2> /dev/null';
       my $exit_code = system qq($cmd_recompile);
       $exit_code >>= 8;
 
-      # Exit Code = 1 : recompile ran and found some error
-      #             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
+      ## Exit Code = 1 : recompile ran and found some error
+      ##             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
       if ($exit_code != 0) {
         if ($exit_code == 1) {
           if ($opts{'wtf'}) {
@@ -369,7 +375,7 @@ if ($opts{'recompile'}) {
 }
 
 
-# Build/Clean _____________________________________________________________________________________________________  {{{
+## Build/Clean _____________________________________________________________________________________________________  {{{
 if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   print "\n[ BUILD ]\n";
   system "\rm recompile.log build_$opts{'model'}.log 2> /dev/null";
@@ -382,9 +388,9 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
     $cmd_build = "build -clean_all" . ($opts{'build'} ? " && " : "");
   }
   $cmd_build .= "build -model $opts{'model'} $vericom_targ" if $opts{'build'};
-  $cmd_build .= " -buildloc $opts{'builddir'}" if $opts{'buildloc'};
+  $cmd_build .= " -buildloc $opts{'builddir'}" if ($opts{'buildloc'} == 1);
 
-  # Beautify :P
+  ## Beautify :P
   $cmd_build =~ s/^\s*|\s*$//g;
   $cmd_build =~ s/\s+/ /g;
 
@@ -406,7 +412,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
         }
         exit($exit_code >> 8);
       } else {
-        # Generate tags and cscope.out if build succeeds
+        ## Generate tags and cscope.out if build succeeds
         system("tail -n3 build_$opts{'model'}.log");
         system("~kshenoy/bin/gentags --create $ENV{'STEM'}/build/$opts{'model'} &") if $opts{'tags'};
       }
@@ -414,17 +420,20 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   }
 }
 
-# Sanity check to see if the build exists
-unless (-f "$ENV{'STEM'}/build/$opts{'model'}/BUILD_SUCCEEDED") {
+## Sanity check to see if the build exists
+if (   $opts{'build'}
+   && !(-f "$opts{'builddir'}/$opts{'model'}/BUILD_SUCCEEDED")
+   && !$opts{'test'}
+   ) {
   die "ERROR: Couldn't find a successful build for $opts{'model'} in $opts{'builddir'}\n";
 }
 
 
 
-# Run Job _________________________________________________________________________________________________________  {{{
+## Run Job _________________________________________________________________________________________________________ {{{
 if ( $opts{'run'} ) {
   print "\n[ RUN JOB ]\n";
-  # Remove junk arguments
+  ## Remove junk arguments
   $opts{'cmd'} =~ s/-vsz_limit\s*\d+\s*//;
   $opts{'cmd'} =~ s/-batch_name\s*\S+\s*//;
   $opts{'cmd'} =~ s/-rtp_datafile\s*\S+\s*//;
@@ -445,18 +454,18 @@ if ( $opts{'run'} ) {
     $opts{'cmd'} =~ s/-p\s+whack\s+-p\s*rndcfg/$& -p avf/;
   }
 
-  # Add coverage defaults
+  ## Add coverage defaults
   if ($opts{'cov'}) {
     $opts{'cmd'} .= " -p cov"                            if ($opts{'cmd'} !~ /\s+-p\s+cov\b/);
     $opts{'cmd'} .= " -model_cov"                        if ($opts{'cmd'} !~ /\s+-model_cov\b/);
     $opts{'cmd'} .= " -vcs_opts '-cg_coverage_control=1" if ($opts{'cmd'} !~ /-cg_coverage_control\s*\=\s*1\b/);
   }
 
-  # Add/Delete options to/from the CMD
+  ## Add/Delete options to/from the CMD
   $opts{'cmd'} .= " -lsf" if $opts{'lsf'};
   if ( $opts{'delete'} ne "" ){
     print "    Removing option: '$opts{'delete'}'\n";
-    # We use \Q and \E to escape any special characters such as in '+DUMP'
+    ## We use \Q and \E to escape any special characters such as in '+DUMP'
     $opts{'cmd'} =~ s/\Q$opts{'delete'}\E//;
   }
   if ($opts{'add'} ne ""){
@@ -465,7 +474,16 @@ if ( $opts{'run'} ) {
     $opts{'cmd'}  .= " " . $opts{'add'};
   }
 
-  # Run the jobspec in its own directory
+  ## Append TMUX info to the jobname to make it easier to find where the jobs were issued from
+  my $jobname = "";
+  if (  defined($ENV{'TMUX'})
+     && (length($ENV{'TMUX'}) > 0)
+     ) {
+    chomp($jobname = `tmux display-message -p "#S_#I.#P"`);
+    $jobname .= "__";
+  }
+
+  ## Run the jobspec in its own directory
   if (  $opts{'ljd'}
      && ($opts{'cmd'} !~ /-d\s*/)
      ) {
@@ -477,21 +495,22 @@ if ( $opts{'run'} ) {
       $i++;
       $ljd_dir = "ljd_${cid}_$i";
     }
-    $opts{'cmd'} .= " -b $ENV{'STEM'}__$opts{'model'}__${ljd_dir} -d ${ljd_dir}";
+    $jobname .= "$ENV{'STEM'}__$opts{'model'}__${ljd_dir}";
+    $opts{'cmd'} .= " -b $jobname -d ${ljd_dir}";
   } elsif ($opts{'ljd'}) {
     $opts{'cmd'} .= " -b $ENV{'STEM'}__$opts{'model'}";
   }
 
 
-  # Grab seed from sim.out if not present in the CMD
+  ## Grab seed from sim.out if not present in the CMD
   if ( !$opts{'ljd'} ) {
     if ( $opts{'seed'} == -1 ) {
-      # NoSeed was forced. Remove seed
+      ## NoSeed was forced. Remove seed
       $opts{'cmd'} =~ s/-seed\s+\w+//;
     }
     else {
       if ( $opts{'seed'} == 0 ) {
-        # Seed wasn't forced. Search sim.out for seed if not found in the run command. Else use $opts{'seed_default'}
+        ## Seed wasn't forced. Search sim.out for seed if not found in the run command. Else use $opts{'seed_default'}
         $opts{'seed'} = $opts{'seed_default'};
 
         if ( $opts{'cmd'} =~ /-seed\s+(\w+)/ ) {
@@ -510,7 +529,7 @@ if ( $opts{'run'} ) {
     }
   }
 
-  # Include/Exclude displayer log
+  ## Include/Exclude displayer log
   if ( $opts{'dsp'} ) {
     $opts{'cmd'} .= ' -avf "-txn_dump txn_dump.mpac.sz"' if ( $opts{'cmd'} !~ /-txn_dump\s+txn_dump.mpac.sz|-p\s+dsp_ch/ );
     #$opts{'cmd'} =~ s/-txn_dump\s+txn_dump.mpac.sz|-p\s+dsp_ch//;
@@ -520,30 +539,37 @@ if ( $opts{'run'} ) {
     $opts{'cmd'} =~ s/-p\s+dsp_ch//;
   }
 
-  # Include/Exclude waves
+  ## Include/Exclude waves
   if ( $opts{'fsdb'} == 0 ) {
     $opts{'cmd'} =~ s/-p fsdb//;
   } elsif ( $opts{'fsdb'} == 1 ) {
     $opts{'cmd'} =~ s/(-p\s+\S+\s+)+/$& -p fsdb / if ( $opts{'cmd'} !~ /-p\s+fsdb/ );
   }
 
-  # Use local build if --buildloc is specified
+  ## Disable compression of Test.log
+  if (  !$opts{'ljd'}
+     && ($opts{'cmd'} !~ /TestCompressedLog/)
+     ) {
+    # $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
+  }
+
+  ## Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
-  if ($opts{'buildloc'}) {
+  if ($opts{'buildloc'} == 1) {
     die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
 
-  # Beautify :P
+  ## Beautify :P
   $opts{'cmd'} =~ s/-avf\s*(["'])\s*\1//g;
   $opts{'cmd'} =~ s/^\s*|\s*$//g;
   $opts{'cmd'} =~ s/\s+/ /g;
 
-  # Run the job remotely
+  ## Run the job remotely
   if (!$opts{'remote'}) {
     $opts{'cmd'} =~ s/run_remote//;
   } elsif ($opts{'cmd'} !~ /^run_remote/) {
-    my $jobname = getppid() . ": " . getcwd();
+    $jobname .= getppid() . ": " . getcwd();
     $opts{'jobcmd'} = 'run_remote ' . $opts{'cmd'};
     $opts{'cmd'} = 'run_remote -J "' . $jobname . '" ' . $opts{'cmd'};
   }
@@ -559,14 +585,20 @@ unless ( $opts{'test'} ) {
   print "\n";
 
   if ($opts{'run'}) {
+    if ($ENV{'STEM'} =~ getcwd()) {
+      print 'ERROR: sim is being run from top of workarea. Do you really want to continue and fail later? (y/n) ';
+      chomp(my $ans = <STDIN>);
+      die if lc($ans =~ '^n');
+    }
+
     system '\rm FAILED PASSED sim.out summary.rj 2> /dev/null';
     exec qq($opts{'cmd'});
   }
 }
 
-#=======================================================================================================================
-# Subroutines                                                                                                       {{{1
-#=======================================================================================================================
+##=======================================================================================================================
+## Subroutines                                                                                                       {{{1
+##=======================================================================================================================
 sub get_build {
   return (  (  $opts{'clean'}
             || $opts{'clean_all'}
@@ -579,7 +611,7 @@ sub run_cmd {
   #print $_[0]."\n";
   my $exit_code = system $_[0];
   if ($exit_code != 0) {
-    # Refer http://stackoverflow.com/a/7080502/734153 for the explanation
+    ## Refer http://stackoverflow.com/a/7080502/734153 for the explanation
     exit($exit_code >> 8);
   }
   return 0

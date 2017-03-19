@@ -112,11 +112,11 @@ fi
 targ_upd=$(( ${src_cl} != ${targ_cl} ))
 
 # Print the input options ______________________________________________________________________________________________
-echo "Source    : $src"
-echo "  CL      : $src_cl"
-echo "Target    : $targ"
-echo "  Create  : $targ_create"
-echo "  Update  : $targ_upd"
+echo "Source : $src"
+echo "    CL : $src_cl"
+echo "Target : $targ"
+echo "Create : $targ_create"
+echo "Update : $targ_upd"
 echo
 
 
