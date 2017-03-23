@@ -283,11 +283,11 @@ if ($opts{'yaml'} >= 0) {
   if (   ($opts{'yaml'} > 0)
      || !(-f "amdmsg_config.yaml")
      ) {
-    print  "    Copying amdmsg_config.yaml\n";
+    print  "Copying amdmsg_config.yaml ...\n";
     &run_cmd('\cp ' . $opts{'yaml_file'} . ' amdmsg_config.yaml') unless $opts{'test'};
   }
-} else {
-  print  "    Deleting amdmsg_config.yaml\n";
+} elsif (-f "amdmsg_config.yaml") {
+  print  "Deleting amdmsg_config.yaml ...\n";
   system('\rm amdmsg_config.yaml 2> /dev/null') unless $opts{'test'};
 }
 
