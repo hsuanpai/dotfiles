@@ -479,7 +479,7 @@ if ( $opts{'run'} ) {
   if (  defined($ENV{'TMUX'})
      && (length($ENV{'TMUX'}) > 0)
      ) {
-    chomp($jobname = `tmux display-message -p "#S_#I.#P"`);
+    chomp($jobname = `tmux display-message -p "#S:#I.#P"`);
     $jobname .= "__";
   }
 
