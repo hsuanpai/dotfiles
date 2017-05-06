@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
-##=======================================================================================================================
+##======================================================================================================================
 ## Documentation                                                                                                    {{{1
-##=======================================================================================================================
+##======================================================================================================================
 =head1 NAME
 
  rerun
@@ -55,6 +55,7 @@
   -R, --norun            Do not execute the run_job
       --seed             Use the seed provided
       --noseed           Remove the seed.
+      --spin             Wait till the model is built successfully before launching the run (Uses ~kshenoy/bin/spin)
   -t, --test             Test run. Just print the command to execute but don't run it
       --verbose          Verbose mode. Print values of all arguments
   -v, --vericom          Build vericom target (default)
@@ -85,8 +86,12 @@ Getopt::Long::Configure("bundling");
 $Data::Dumper::Sortkeys = 1;
 
 
-## Default values for options ===========================================================================================
-my %opts = (                                                                                                       # {{{
+
+##======================================================================================================================
+## Option Handling                                                                                                  {{{1
+##======================================================================================================================
+## Default values for options _____________________________________________________________________________________ {{{2
+my %opts = (
   'add'              =>  "",
   'build'            =>  0,
   'builddir'         =>  "",
@@ -107,6 +112,7 @@ my %opts = (                                                                    
   'run'              =>  1,
   'seed'             =>  0,
   'seed_default'     =>  213471118,
+  'spin'             =>  0,
   'tags'             =>  1,
   'test'             =>  0,
   'verbose'          =>  0,
@@ -118,7 +124,7 @@ my %opts = (                                                                    
 $opts{'file'} = "sim.out"    unless ( -e $opts{'file'} );
 $opts{'file'} = "summary.rj" unless ( -e $opts{'file'} );
 
-GetOptions(                                                                                                        # {{{
+GetOptions(                                                                                                       # {{{2
   \%opts,
   'add|a=s',
   'build|b!',
@@ -154,6 +160,7 @@ GetOptions(                                                                     
                              },
   'run|r!',
   'seed:o'            => sub { print "Seed: $_[0], $_[1]\n"; },
+  'spin!',
   'noseed'            => sub { $opts{'seed'} = -1; },
   'tags!',
   'test|t!',
@@ -188,7 +195,7 @@ print "INFO: Ignoring extra arguments '@ARGV'\n" if ($#ARGV >= 0);
 ## |          | If it hasn't been specified, default to $PWD/buildloc                                             |
 ## |        1 | User used --buildloc option with an argument. Use that to build locally                           |
 ## |----------+---------------------------------------------------------------------------------------------------|
-
+# }}}1
 
 ## Check if bootenv has been done
 die 'ERROR: $STEM is not set\n' unless defined($ENV{'STEM'});
@@ -197,6 +204,9 @@ print  "[ TEST RUN ]\n" if $opts{'test'};
 
 ## Processing arguments
 $opts{'build'} ||= &get_build;
+if ($opts{'build'}) {
+  $opts{'spin'} = 0;
+}
 
 ## Dump the input arguments
 print Dumper(\%opts) if $opts{'verbose'};
@@ -208,7 +218,7 @@ print Dumper(\%opts) if $opts{'verbose'};
 ## 4. Build the model
 ## 5. Sanitize and construct the final CMD string
 
-## Identify the Source _____________________________________________________________________________________________  {{{
+## Identify the Source _________________________________________________________________________________________________
 ## --cmd > ljd file | run_job file
 if ( $opts{'cmd'} eq "" ) {
   if ( `grep -s jobspec $opts{'file'}` ) {
@@ -226,7 +236,7 @@ if ($opts{'ljd'}) {
   $opts{'lsf'} = 0;
 }
 
-## Get the command _________________________________________________________________________________________________  {{{
+## Get the command _____________________________________________________________________________________________________
 if (  (  (  $opts{'build'}
          || $opts{'clean'}
          )
@@ -251,7 +261,7 @@ if (  (  (  $opts{'build'}
 chomp( $opts{'cmd'} );
 
 
-## Identify the model ______________________________________________________________________________________________  {{{
+## Identify the model __________________________________________________________________________________________________
 if ( $opts{'ljd'} ) {
   ( my $ljd_model ) = `grep -s -m 1 '<model>' $opts{'file'}` =~ /<model>([^<]+)<\/model>/;
   if ( $opts{'model'} eq "" ) {
@@ -277,7 +287,7 @@ $opts{'cmd'} =~ s/(-model)\s*\w+/$1 $opts{'model'}/;
 $opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'buildloc'} != 1);
 
 
-## Include/Exclude the amdmsg_config.yaml file _____________________________________________________________________  {{{
+## Include/Exclude the amdmsg_config.yaml file _________________________________________________________________________
 if ($opts{'yaml'} >= 0) {
   ## Copy only if the yaml does not exist or --yaml is forced.
   if (   ($opts{'yaml'} > 0)
@@ -291,7 +301,7 @@ if ($opts{'yaml'} >= 0) {
   system('\rm amdmsg_config.yaml 2> /dev/null') unless $opts{'test'};
 }
 
-## Build locally? __________________________________________________________________________________________________  {{{
+## Build locally? ______________________________________________________________________________________________________
 if (  (  ($opts{'buildloc'} == 1)
       && ($opts{'builddir'} eq "")
       )
@@ -307,7 +317,7 @@ if (  (  ($opts{'buildloc'} == 1)
 }
 
 
-## Recompile _______________________________________________________________________________________________________  {{{
+## Recompile ___________________________________________________________________________________________________________
 if ($opts{'recompile'}) {
   print "[ RECOMPILE ]\n";
 
@@ -375,7 +385,7 @@ if ($opts{'recompile'}) {
 }
 
 
-## Build/Clean _____________________________________________________________________________________________________  {{{
+## Build/Clean _________________________________________________________________________________________________________
 if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   print "\n[ BUILD ]\n";
   system "\rm recompile.log build_$opts{'model'}.log 2> /dev/null";
@@ -418,10 +428,19 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
       }
     }
   }
+} elsif ($opts{'spin'}) {
+  ## Wait till model has been built successfully
+  print "\n[ BUILD ]\n";
+  print "    Waiting till the $opts{'model'} is built...\n";
+  system("~kshenoy/bin/spin --model $opts{'model'}");
 }
 
+
+
 ## Sanity check to see if the build exists
-if (   $opts{'build'}
+if (  (  $opts{'build'}
+      || $opts{'spin'}
+      )
    && !(-f "$opts{'builddir'}/$opts{'model'}/BUILD_SUCCEEDED")
    && !$opts{'test'}
    ) {
@@ -430,7 +449,7 @@ if (   $opts{'build'}
 
 
 
-## Run Job _________________________________________________________________________________________________________ {{{
+## Run Job _____________________________________________________________________________________________________________
 if ( $opts{'run'} ) {
   print "\n[ RUN JOB ]\n";
   ## Remove junk arguments
@@ -445,6 +464,9 @@ if ( $opts{'run'} ) {
   $opts{'cmd'} =~ s/-test_id\s*\S+\s*//;
   $opts{'cmd'} =~ s/-p\s+rg_dsp_ch\s*//;
   $opts{'cmd'} =~ s/-p\s+disk_space\s*//;
+  $opts{'cmd'} =~ s/-p\s+RegrPlatformPluginCRDB//g;
+  $opts{'cmd'} =~ s/-rp_name\s+\w+//;
+  $opts{'cmd'} =~ s/-cov_vdb_root\s+\S+//;
 
   if ($opts{'cmd'} =~ /-vcs_opts\s*\+DUMP/) {
     $opts{'cmd'} =~ s/$&//;
@@ -550,13 +572,13 @@ if ( $opts{'run'} ) {
   if (  !$opts{'ljd'}
      && ($opts{'cmd'} !~ /TestCompressedLog/)
      ) {
-    # $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
+    $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
   }
 
   ## Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
   if ($opts{'buildloc'} == 1) {
-    die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'});
+    die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'} || $opts{'test'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
 
@@ -596,9 +618,9 @@ unless ( $opts{'test'} ) {
   }
 }
 
-##=======================================================================================================================
-## Subroutines                                                                                                       {{{1
-##=======================================================================================================================
+##======================================================================================================================
+## Subroutines                                                                                                      {{{1
+##======================================================================================================================
 sub get_build {
   return (  (  $opts{'clean'}
             || $opts{'clean_all'}
