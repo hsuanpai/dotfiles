@@ -1,0 +1,90 @@
+#!/usr/bin/env ruby
+#
+# Simple script to convert the L3PmcCfgReg from the AH format to the new BR format
+
+class Fixnum
+  def slice(msb, lsb=msb)
+    (self >> lsb) & ((1 << (msb - lsb + 1)) - 1)
+  end
+end
+
+def po2?(n)
+  n.to_s(2).count('1') == 1
+end
+
+def getOldPmcCfg(str)
+  oldPmcCfg = {
+    :str => str,
+    :val => str.to_i(16)
+  }
+  oldPmcCfg[:Misc]       = oldPmcCfg[:val].slice(17,0)
+  oldPmcCfg[:SliceMask]  = oldPmcCfg[:val].slice(21,18)
+  oldPmcCfg[:ThreadMask] = oldPmcCfg[:val].slice(29,22)
+
+  return oldPmcCfg
+end
+
+def getNewPmcCfg(oldPmcCfg)
+  newPmcCfg = {
+    :Misc        => oldPmcCfg[:Misc],
+    :SliceID     => 0,
+    :EnAllSlices => 0,
+    :CoreID      => 0,
+    :EnAllCores  => 0,
+    :ThreadMask  => 15
+  }
+
+  if (oldPmcCfg[:SliceMask] == 15)
+    newPmcCfg[:EnAllSlices] = 1
+  elsif po2?(oldPmcCfg[:SliceMask])
+    newPmcCfg[:SliceID]     = Math.log2(oldPmcCfg[:SliceMask])
+  else
+    return nil
+  end
+
+  if (oldPmcCfg[:ThreadMask] == 255)
+    newPmcCfg[:EnAllCores] = 1
+  else
+    singleCoreSet = false
+    (0..3).each do |core|
+      if ((oldPmcCfg[:ThreadMask] & (3 << (2*core))) == oldPmcCfg[:ThreadMask])
+        singleCoreSet = true
+        oldThreadMask = (oldPmcCfg[:ThreadMask] >> (2*core)) & 3
+        if (oldThreadMask == 3)
+          newPmcCfg[:CoreID]     = core
+        else
+          newPmcCfg[:CoreID]     = core
+          newPmcCfg[:ThreadMask] = oldThreadMask
+        end
+        break
+      end
+    end
+    unless singleCoreSet
+      return nil
+    end
+  end
+
+  newPmcCfg[:val] = ( (newPmcCfg[:EnAllCores]  << 31) \
+                    | (newPmcCfg[:EnAllSlices] << 30) \
+                    | (newPmcCfg[:CoreID]      << 26) \
+                    | (newPmcCfg[:ThreadMask]  << 22) \
+                    | (newPmcCfg[:SliceID]     << 18) \
+                    | newPmcCfg[:Misc]                \
+                    )
+  newPmcCfg[:str] = "0x#{newPmcCfg[:val].to_s(16)}"
+  return newPmcCfg
+end
+
+ARGV.each do |argv|
+  File.foreach(argv) do |line|
+    line.match('tb_ch/pmon/perf_pmon_l3.*-TestPmcCfg\s+(0x\h+)') do |m|
+      oldPmcCfg = getOldPmcCfg(m[1])
+      newPmcCfg = getNewPmcCfg(oldPmcCfg)
+      if newPmcCfg
+        puts "Old=#{oldPmcCfg[:str]}, New=#{newPmcCfg[:str]}"
+      else
+        puts "Old=#{oldPmcCfg[:str]}, New=nil"
+      end
+    end
+  end
+end

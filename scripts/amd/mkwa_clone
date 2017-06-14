@@ -91,7 +91,7 @@ shift $((OPTIND-1))
 src_proj=$(grep -Po "\w+(?=/)" ${src}/configuration_id)
 src_branch=$(grep -Po "(?<=/)\w+(?=@)" ${src}/configuration_id)
 src_cl=$(grep -Po "(?<=@)\d+" ${src}/configuration_id)
-if [[ (! $src_cl =~ [0-9]+) || ("$src_cl" == "0") ]]; then
+if [[ ! $src_cl =~ [0-9]+ ]] || [[ "$src_cl" == "0" ]]; then
   echo "ERROR: Unable to determine source work-area changelist"
   exit 1
 fi
