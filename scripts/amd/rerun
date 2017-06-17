@@ -13,7 +13,7 @@
 
 =head1 SYNOPSIS
 
- rerun [OPTIONS]
+ rerun [OPTIONS] [RECOMPILE_FILES]
 
 =head1 DESCRIPTION
 
@@ -146,9 +146,7 @@ GetOptions(                                                                     
                                $opts{'remote'} = 0 if $_[1];
                              },
   'model|m=s',
-  'recompile:s@',     => sub { $opts{'recompile'} = 1;
-                               push(@{$opts{'recompile_files'}}, $_[1]) if ($_[1] ne "");
-                             },
+  'recompile!',
   'remote!'           => sub { $opts{$_[0]} = $_[1];
                                $opts{'lsf'} = 0 if $_[1];
                              },
@@ -169,7 +167,11 @@ GetOptions(                                                                     
   'noyaml'            => sub { $opts{'yaml'} = -1 }
 ) or pod2usage(-verbose => 1);
 
-print "INFO: Ignoring extra arguments '@ARGV'\n" if ($#ARGV >= 0);
+if ($opts{'recompile'}) {
+  @{$opts{'recompile_files'}} = @ARGV;
+} else {
+  print "INFO: Ignoring extra arguments '@ARGV'\n" if ($#ARGV >= 0);
+}
 
 ## Force options
 ## |------+-----------+-------------------------------------------------------------------------------------|
