@@ -4,6 +4,8 @@
 #   P4 Work area - The work area to run the sim in
 #   Changelist - The changelist to update to before running
 
+# TODO: Convert 1/0 to true/false
+
 function print_help() {
   echo "Usage:"
   echo "  $(basename $0) [OPTIONS]"
@@ -22,7 +24,8 @@ targ_create=0
 targ_upd=0
 targ_cl=0
 summary=0
-verbose=1
+update=true
+verbose=false
 
 pipe="${TMPDIR:-/tmp}/mkwa_clone_$$"
 if [[ -p ${pipe} ]]; then
@@ -61,8 +64,11 @@ while getopts ":c:s:t:hv" opt; do
       #echo "Targ: $targ"
       ;;
 
+    n)
+      no_update=true
+
     v)
-      verbose=1
+      verbose=true
       ;;
 
     h)
