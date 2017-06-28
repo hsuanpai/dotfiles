@@ -283,6 +283,8 @@ if ( $opts{'ljd'} ) {
     &run_cmd('\sed "s/' . $ljd_model . '/' . $opts{'model'} . '/" ' . $file_old . '>| ' . $opts{'file'}) unless $opts{'test'};
     $opts{'cmd'} = "ljd -nomail -l $opts{'file'}";
   }
+} elsif ( $opts{'model'} =~ /unittest/ ) {
+  $opts{'vericom'} = 0;
 } elsif ( $opts{'model'} eq "" ) {
   print "\nModel not specified. Obtaining it from the run_job command...\n" if $opts{'verbose'};
   ( $opts{'model'} ) = $opts{'cmd'} =~ /-model\s*(\w+)/;
