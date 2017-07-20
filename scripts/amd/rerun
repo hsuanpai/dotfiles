@@ -329,56 +329,62 @@ if (  (  ($opts{'buildloc'} == 1)
 if ($opts{'recompile'}) {
   print "[ RECOMPILE ]\n";
 
-  if ($#{$opts{'recompile_files'}} >= 0) {
-    # Files to be recompiled have been provided
-    # Enclose map in [...] to return an array reference instead of a plain array
-    $opts{'recompile_files'} = [ map(basename($_, ('.h', '.cc', '.cpp', '.c')), @{$opts{'recompile_files'}}) ];
-  } else {
-    my %recompile_files;
-    foreach (`p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where`) {
+  if (-f "$ENV{'STEM'}/build/$opts{'model'}/build.log") {
+    if ($#{$opts{'recompile_files'}} >= 0) {
+      # Files to be recompiled have been provided
+      # Enclose map in [...] to return an array reference instead of a plain array
+      $opts{'recompile_files'} = [ map(basename($_, ('.h', '.cc', '.cpp', '.c')), @{$opts{'recompile_files'}}) ];
+    } else {
       my $build_mod_time = `stat -c '%Y' $ENV{'STEM'}/build/$opts{'model'}/build.log`; chomp $build_mod_time;
-
-      my @i = split(' ');
-      my $file = $i[-1]; my $file_basename = basename($file, ('.h', '.cc'));
-      if (-f dirname($file) . "/" . $file_basename . ".cc") {
-        my $file_mod_time = `stat -c '%Y' $file`; chomp $file_mod_time;
-        if (  ($file_mod_time > $build_mod_time)
-           && (  !exists($recompile_files{$file_basename})
-              || ($file_mod_time > $recompile_files{$file_basename})
-              )
-           ) {
-          $recompile_files{$file_basename} = $file_mod_time;
+      if ($build_mod_time ne "") {
+        my %recompile_files;
+        foreach (`p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where`) {
+          my @i = split(' ');
+          my $file = $i[-1]; my $file_basename = basename($file, ('.h', '.cc'));
+          if (-f dirname($file) . "/" . $file_basename . ".cc") {
+            my $file_mod_time = `stat -c '%Y' $file`; chomp $file_mod_time;
+            if ($file_mod_time eq "") {
+              next;
+            }
+            if (  ($file_mod_time > $build_mod_time)
+               && (  !exists($recompile_files{$file_basename})
+                  || ($file_mod_time > $recompile_files{$file_basename})
+                  )
+               ) {
+              $recompile_files{$file_basename} = $file_mod_time;
+            }
+          }
         }
+        @{$opts{'recompile_files'}} = (sort { $recompile_files{$b} <=> $recompile_files{$a} } keys %recompile_files);
       }
     }
-    @{$opts{'recompile_files'}} = (sort { $recompile_files{$b} <=> $recompile_files{$a} } keys %recompile_files);
-  }
-  # print Dumper(\@{$opts{'recompile_files'}});
+    # print Dumper(\@{$opts{'recompile_files'}});
 
-  my $cmd_recompile;
-  foreach (@{$opts{'recompile_files'}}) {
-    $cmd_recompile = "recompile -model $opts{'model'} $_";
-    print "    $cmd_recompile\n";
-    $cmd_recompile .= " 2>&1 >| recompile.log";
+    foreach (@{$opts{'recompile_files'}}) {
+      my $cmd_recompile = "recompile -model $opts{'model'} $_";
+      print "    $cmd_recompile\n";
+      $cmd_recompile .= " 2>&1 >| recompile.log";
 
-    unless ($opts{'test'}) {
-      system '\rm recompile.log 2> /dev/null';
-      my $exit_code = system qq($cmd_recompile);
-      $exit_code >>= 8;
+      unless ($opts{'test'}) {
+        system '\rm recompile.log 2> /dev/null';
+        my $exit_code = system qq($cmd_recompile);
+        $exit_code >>= 8;
+        # print "DEBUG: Recompile exited with code=$exit_code\n";
 
-      ## Exit Code = 1 : recompile ran and found some error
-      ##             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
-      if ($exit_code != 0) {
-        if ($exit_code == 1) {
-          if ($opts{'wtf'}) {
-            exec 'less +/error: recompile.log';
+        ## Exit Code = 1 : recompile ran and found some error
+        ##             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
+        if ($exit_code != 0) {
+          if ($exit_code == 1) {
+            if ($opts{'wtf'}) {
+              exec 'less +/error: recompile.log';
+            }
+          } elsif ($exit_code == 2) {
+            print "ERROR: Recompile failed with exit code = 2\n";
+          } else {
+            print "ERROR: Recompile failed with exit code > 2\n";
           }
-        } elsif ($exit_code == 2) {
-          print "ERROR: Recompile failed with exit code = 2\n";
-        } else {
-          print "ERROR: Recompile failed with exit code > 2\n";
+          exit($exit_code);
         }
-        exit($exit_code);
       }
     }
   }
