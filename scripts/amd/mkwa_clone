@@ -66,6 +66,7 @@ while getopts ":c:s:t:hv" opt; do
 
     n)
       no_update=true
+      ;;
 
     v)
       verbose=true
