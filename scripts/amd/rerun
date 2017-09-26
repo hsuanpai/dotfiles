@@ -29,7 +29,7 @@
       --nobuildloc       Don't build the model locally (default)
   -c, --clean            Clean model and rebuild before running
                          Implies --build unless --norun is specified
-  -C, --clean_all        Clean all models and rebuild before running
+  -C, --clean-all        Clean all models and rebuild before running
                          Implies --build unless --norun is specified
       --cmd=CMD          Provide the cmd directly to clean up and run.
                          Overrides --file
@@ -132,7 +132,7 @@ GetOptions(                                                                     
                              },
   'nobuildloc'        => sub { $opts{'buildloc'} = -1; },
   'clean|c',
-  'clean_all|C'       => sub { $opts{'clean_all'} = 1;
+  'clean-all|C'       => sub { $opts{'clean_all'} = 1;
                                $opts{'clean'} = 0;
                              },
   'cmd=s',
@@ -574,9 +574,11 @@ if ( $opts{'run'} ) {
   }
 
   ## Disable compression of Test.log
-  if (  !$opts{'ljd'}
-     && ($opts{'cmd'} !~ /TestCompressedLog/)
-     ) {
+  if ($opts{'cmd'} =~ /tb_l3/) {
+    $opts{'cmd'} =~ s/-TestCompressedLog\s+0\s*//;
+  } elsif (  !$opts{'ljd'}
+          && ($opts{'cmd'} !~ /TestCompressedLog/)
+          ) {
     $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
   }
 
