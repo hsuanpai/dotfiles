@@ -414,6 +414,10 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   print "\n" if ($opts{'clean'} || $opts{'clean_all'});
   unless ($opts{'test'}) {
     $cmd_build .= " >| build_$opts{'model'}.log" if $opts{'build'};
+
+    unlink "$ENV{'STEM'}/build/latest";
+    symlink("$ENV{'STEM'}/build/$opts{'model'}", "$ENV{'STEM'}/build/latest") || warn("WARN: Unable to create symlink to latest build\n");
+
     my $exit_code = system qq($cmd_build);
 
     if ($opts{'build'}) {
