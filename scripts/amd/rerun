@@ -25,8 +25,8 @@
   -a, --add=STRING       Add STRING to the run_job command. Can be specified multiple times
                          Overrides --delete
   -b, --build            Build model before running
-      --buildloc         Build model locally in the specified path/Use the local build for the run_job command
-      --nobuildloc       Don't build the model locally (default)
+      --buildlocal       Build model locally in the specified path/Use the local build for the run_job command
+      --nobuildlocal     Don't build the model locally (default)
   -c, --clean            Clean model and rebuild before running
                          Implies --build unless --norun is specified
   -C, --clean-all        Clean all models and rebuild before running
@@ -52,6 +52,7 @@
                          If not given any, it'll recompile all files edited after the last build.
   -r, --run              Execute the run_job (default)
   -R, --norun            Do not execute the run_job
+      --runlocal         Run simulation locally. Implies --noremote and --nolsf
       --seed=NUM         Use NUM as seed
       --noseed           Remove the seed.
       --spin             Wait till the model is built successfully before launching the run (Uses ~kshenoy/bin/spin)
@@ -94,7 +95,7 @@ my %opts = (
   'add'              =>  "",
   'build'            =>  0,
   'builddir'         =>  "",
-  'buildloc'         =>  0,
+  'buildlocal'       =>  0,
   'clean'            =>  0,
   'clean_all'        =>  0,
   'cmd'              =>  "",
@@ -127,10 +128,10 @@ GetOptions(                                                                     
   \%opts,
   'add|a=s',
   'build|b!',
-  'buildloc:s'        => sub { $opts{'buildloc'} = 1;
+  'buildlocal:s'      => sub { $opts{'buildlocal'} = 1;
                                $opts{'builddir'} = $_[1] if ($_[1] ne "");
                              },
-  'nobuildloc'        => sub { $opts{'buildloc'} = -1; },
+  'nobuildlocal'      => sub { $opts{'buildlocal'} = -1; },
   'clean|c',
   'clean-all|C'       => sub { $opts{'clean_all'} = 1;
                                $opts{'clean'} = 0;
@@ -151,6 +152,9 @@ GetOptions(                                                                     
                                $opts{'lsf'} = 0 if $_[1];
                              },
   'run|r!',
+  'runlocal',         => sub { $opts{'remote'} = 0;
+                               $opts{'lsf'}    = 0;
+                             },
   'seed=o'            => sub { $opts{'seed_f'} = 1;
                                $opts{'seed'}   = $_[1];
                              },
@@ -192,15 +196,15 @@ if ($opts{'recompile'}) {
 ## |     -1 | --noseed was specified, remove --seed from the command-line |
 ## |--------+-------------------------------------------------------------|
 
-## |----------+---------------------------------------------------------------------------------------------------|
-## | buildloc | Description                                                                                       |
-## |----------+---------------------------------------------------------------------------------------------------|
-## |       -1 | User used the --nobuildloc option. Do not build locally.                                          |
-## |        0 | Neither --buildloc nor --nobuildloc was used. Follow previous run_job command                     |
-## |        1 | User used --buildloc option without any argument. Check the run_job command for -buildloc switch. |
-## |          | If it hasn't been specified, default to $PWD/buildloc                                             |
-## |        1 | User used --buildloc option with an argument. Use that to build locally                           |
-## |----------+---------------------------------------------------------------------------------------------------|
+## |------------+------------------------------------------------------------------------------------------------------|
+## | buildlocal | Description                                                                                          |
+## |------------+------------------------------------------------------------------------------------------------------|
+## |         -1 | User used the --nobuildlocal option. Do not build locally.                                           |
+## |          0 | Neither --buildlocal nor --nobuildlocal was used. Follow previous run_job command                    |
+## |          1 | User used --buildlocal option without any argument. Check the run_job command for -buildlocal switch.|
+## |            | If it hasn't been specified, default to $PWD/buildlocal                                              |
+## |          1 | User used --buildlocal option with an argument. Use that to build locally                            |
+## |------------+------------------------------------------------------------------------------------------------------|
 # }}}1
 
 ## Check if bootenv has been done
@@ -292,7 +296,7 @@ if ( $opts{'ljd'} ) {
 }
 print "Model: '$opts{'model'}'\n\n" if $opts{'verbose'};
 $opts{'cmd'} =~ s/(-model)\s*\w+/$1 $opts{'model'}/;
-$opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'buildloc'} != 1);
+$opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'buildlocal'} != 1);
 
 
 ## Include/Exclude the amdmsg_config.yaml file _________________________________________________________________________
@@ -310,16 +314,16 @@ if ($opts{'yaml'} >= 0) {
 }
 
 ## Build locally? ______________________________________________________________________________________________________
-if (  (  ($opts{'buildloc'} == 1)
+if (  (  ($opts{'buildlocal'} == 1)
       && ($opts{'builddir'} eq "")
       )
-   || ($opts{'buildloc'} == 0)
+   || ($opts{'buildlocal'} == 0)
    ) {
-  ## Check if run_job has the -buildloc option
-  if ($opts{'cmd'} =~ /-buildloc\s*(\S+)/) {
-    $opts{'buildloc'} = 1;
+  ## Check if run_job has the -buildlocal option
+  if ($opts{'cmd'} =~ /-buildlocal\s*(\S+)/) {
+    $opts{'buildlocal'} = 1;
     $opts{'builddir'} = $1 if ($1 ne "");
-  } elsif ($opts{'buildloc'} == 1) {
+  } elsif ($opts{'buildlocal'} == 1) {
     $opts{'builddir'} = getcwd() . "/buildloc";
   }
 }
@@ -373,16 +377,16 @@ if ($opts{'recompile'}) {
 
         ## Exit Code = 1 : recompile ran and found some error
         ##             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
-        if ($exit_code != 0) {
-          if ($exit_code == 1) {
-            if ($opts{'wtf'}) {
-              exec 'less +/error: recompile.log';
-            }
-          } elsif ($exit_code == 2) {
-            print "ERROR: Recompile failed with exit code = 2\n";
-          } else {
-            print "ERROR: Recompile failed with exit code > 2\n";
-          }
+        if (  ($exit_code == 1)
+           && $opts{'wtf'}
+           ) {
+          exec '$PAGER recompile.log';
+          exit($exit_code);
+        } elsif ($exit_code == 2) {
+          print "ERROR: Recompile failed with exit code $exit_code probably because it couldn't find the file.\n";
+          print "       Continuing on with the build...\n";
+        } elsif ($exit_code != 0) {
+          print "ERROR: Recompile failed with exit code $exit_code\n";
           exit($exit_code);
         }
       }
@@ -403,8 +407,8 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   } elsif ($opts{'clean_all'}) {
     $cmd_build = "build -clean_all" . ($opts{'build'} ? " && " : "");
   }
-  $cmd_build .= "build -model $opts{'model'} $vericom_targ" if $opts{'build'};
-  $cmd_build .= " -buildloc $opts{'builddir'}" if ($opts{'buildloc'} == 1);
+  $cmd_build .= "build -model $opts{'model'} -k $vericom_targ" if $opts{'build'};
+  $cmd_build .= " -buildloc $opts{'builddir'}" if ($opts{'buildlocal'} == 1);
 
   ## Beautify :P
   $cmd_build =~ s/^\s*|\s*$//g;
@@ -424,7 +428,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
       if ($exit_code) {
         if ($opts{'wtf'}) {
           print "\n";
-          if ($opts{'buildloc'}) {
+          if ($opts{'buildlocal'}) {
             system "WhyTheFail -m $opts{'model'} --buildloc $opts{'builddir'}";
           } else {
             system "WhyTheFail -m $opts{'model'}";
@@ -588,7 +592,7 @@ if ( $opts{'run'} ) {
 
   ## Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
-  if ($opts{'buildloc'} == 1) {
+  if ($opts{'buildlocal'} == 1) {
     die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'} || $opts{'test'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
