@@ -184,5 +184,5 @@ function finish() {
   echo -e "\n${fg_green}[Cleaning up...]${reset}"
   command rm ${pipe} &> /dev/null
 }
-trap finish EXIT
 
+trap finish EXIT

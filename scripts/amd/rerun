@@ -47,8 +47,8 @@
       --lsf                Submit the job to LSF (default)
       --nolsf              Run the job locally
   -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
-      --remote             Run the run_job command remotely
-      --noremote           Run the run_job command locally
+      --remote             Launch the run_job command remotely
+      --noremote           Launch the run_job command locally
       --recompile          Run recompile first before building the model. One or more files can be specified.
                            If not given any, it'll recompile all files edited after the last build.
   -r, --run                Execute the run_job (default)
@@ -499,7 +499,6 @@ if ( $opts{'run'} ) {
   }
 
   ## Add/Delete options to/from the CMD
-  $opts{'cmd'} .= " -lsf" if $opts{'lsf'};
   if ( $opts{'delete'} ne "" ){
     print "    Removing option: '$opts{'delete'}'\n";
     ## We use \Q and \E to escape any special characters such as in '+DUMP'
@@ -588,7 +587,7 @@ if ( $opts{'run'} ) {
   } elsif (  !$opts{'ljd'}
           && ($opts{'cmd'} !~ /TestCompressedLog/)
           ) {
-    $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
+    $opts{'cmd'} .= ' -avf "-TestCompressedLog 0"';
   }
 
   ## Use local build if --buildloc is specified
@@ -605,10 +604,21 @@ if ( $opts{'run'} ) {
 
   ## Run the job remotely
   $opts{'jobname'} .= getppid() . ": " . getcwd();
-  if ($opts{'lsf'}) {
-    $opts{'cmd'} .= "-submit_args '-J \"$opts{'jobname'}\"'";
-  } elsif ($opts{'remote'}) {
-    $opts{'jobcmd'} = 'run_remote ' . $opts{'cmd'};
+
+  if (!$opts{'lsf'}) {
+    $opts{'cmd'} =~ s/\s*-lsf//;
+    $opts{'cmd'} =~ s/\s*-submit_args\s+'[^']*'//;
+  } else {
+    if ($opts{'cmd'} !~ /-lsf/) {
+      $opts{'cmd'} .= " -lsf"
+    }
+    if ($opts{'cmd'} !~ /-submit_args/) {
+      $opts{'cmd'} .= " -submit_args '-J \"$opts{'jobname'}\"'";
+    }
+  }
+
+  if ($opts{'remote'}) {
+
     $opts{'cmd'} = 'run_remote -J "' . $opts{'jobname'} . '" ' . $opts{'cmd'};
   }
 
