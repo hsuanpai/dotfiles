@@ -24,6 +24,8 @@
 
   -a, --add=STRING         Add STRING to the run_job command. Can be specified multiple times
                            Overrides --delete
+      --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default. Dumps to agg_dump.txt by default)
+      --noagg-dump         Don't dump aggregator logs to FILE
   -b, --build              Build model before running
       --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
                            NOTE: The build command creates a subdirectory with the name of the model within PATH
@@ -47,8 +49,8 @@
       --lsf                Submit the job to LSF (default)
       --nolsf              Run the job locally
   -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
-      --remote             Run the run_job command remotely
-      --noremote           Run the run_job command locally
+      --remote             Launch the run_job command remotely
+      --noremote           Launch the run_job command locally
       --recompile          Run recompile first before building the model. One or more files can be specified.
                            If not given any, it'll recompile all files edited after the last build.
   -r, --run                Execute the run_job (default)
@@ -65,7 +67,7 @@
       --nowtf              Do not run WhyTheFail if build fails
   -y, --yaml               Enable logging via amdmsg_config.yaml (default).
                            The yaml file to be used can be specified as an optional argument.
-                           Defaults to /proj/ch_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml if one is not provided.
+                           Defaults to ~/amdmsg_config.yaml if one is not provided.
       --noyaml             Disable logging (Delete amdmsg_config.yaml file)
 
 =cut
@@ -94,6 +96,9 @@ $Data::Dumper::Sortkeys = 1;
 ## Default values for options _____________________________________________________________________________________ {{{2
 my %opts = (
   'add'              =>  "",
+  'agg_dump_f'       =>  0,
+  'agg_dump'         =>  0,
+  'agg_dump_file'    =>  "agg_dump.txt",
   'build'            =>  0,
   'builddir'         =>  "",
   'buildlocal'       =>  0,
@@ -121,7 +126,7 @@ my %opts = (
   'vericom'          =>  1,
   'wtf'              =>  1,
   'yaml'             =>  0,
-  'yaml_file'        =>  "/proj/ch_func_dev0/ASPEN/kshenoy/amdmsg_config.yaml",
+  'yaml_file'        =>  "~/amdmsg_config.yaml",
 );
 $opts{'file'} = "sim.out"    unless ( -e $opts{'file'} );
 $opts{'file'} = "summary.rj" unless ( -e $opts{'file'} );
@@ -129,6 +134,13 @@ $opts{'file'} = "summary.rj" unless ( -e $opts{'file'} );
 GetOptions(                                                                                                       # {{{2
   \%opts,
   'add|a=s',
+  'agg-dump:s'        => sub { $opts{'agg_dump_f'} = 1;
+                               $opts{'agg_dump'} = 1;
+                               $opts{'agg_dump_file'} = $_[1] if ($_[1] ne "");
+                             },
+  'noagg-dump'        => sub { $opts{'agg_dump_f'} = 1;
+                               $opts{'agg_dump'} = 0;
+                             },
   'build|b!',
   'buildlocal:s'      => sub { $opts{'buildlocal'} = 1;
                                $opts{'builddir'} = $_[1] if ($_[1] ne "");
@@ -236,6 +248,8 @@ if ( $opts{'cmd'} eq "" ) {
   if ( `grep -s jobspec $opts{'file'}` ) {
     $opts{'ljd'} = 1;
     $opts{'dsp'} = 0;
+    $opts{'agg_dump_f'} = 1;
+    $opts{'agg_dump'} = 0;
     ## Delete any amdmsg_config.yaml files when running a jobspec
     $opts{'yaml'} = -1;
     ## Force build without --vericom option
@@ -499,7 +513,6 @@ if ( $opts{'run'} ) {
   }
 
   ## Add/Delete options to/from the CMD
-  $opts{'cmd'} .= " -lsf" if $opts{'lsf'};
   if ( $opts{'delete'} ne "" ){
     print "    Removing option: '$opts{'delete'}'\n";
     ## We use \Q and \E to escape any special characters such as in '+DUMP'
@@ -565,7 +578,15 @@ if ( $opts{'run'} ) {
     }
   }
 
-  ## Include/Exclude displayer log
+  ## Include/Exclude logs
+  if ($opts{'agg_dump_f'}) {
+    $opts{'cmd'} =~ s/[^-]-agg_dump\s+[^\s"]+//;
+    if ($opts{'agg_dump'}) {
+      $opts{'cmd'} .= ' -avf "-agg_dump ' . $opts{'agg_dump_file'} . '"';
+    }
+  }
+
+  # NOTE: I don't use '-p dsp_ch' because it pollutes the sim.out in case of association failures (false-failures)
   if ( $opts{'dsp'} ) {
     $opts{'cmd'} .= ' -avf "-txn_dump txn_dump.mpac.sz"' if ( $opts{'cmd'} !~ /-txn_dump\s+txn_dump.mpac.sz|-p\s+dsp_ch/ );
     #$opts{'cmd'} =~ s/-txn_dump\s+txn_dump.mpac.sz|-p\s+dsp_ch//;
@@ -588,7 +609,7 @@ if ( $opts{'run'} ) {
   } elsif (  !$opts{'ljd'}
           && ($opts{'cmd'} !~ /TestCompressedLog/)
           ) {
-    $opts{'cmd'} .= '  -avf "-TestCompressedLog 0"';
+    $opts{'cmd'} .= ' -avf "-TestCompressedLog 0"';
   }
 
   ## Use local build if --buildloc is specified
@@ -605,10 +626,21 @@ if ( $opts{'run'} ) {
 
   ## Run the job remotely
   $opts{'jobname'} .= getppid() . ": " . getcwd();
-  if ($opts{'lsf'}) {
-    $opts{'cmd'} .= "-submit_args '-J \"$opts{'jobname'}\"'";
-  } elsif ($opts{'remote'}) {
-    $opts{'jobcmd'} = 'run_remote ' . $opts{'cmd'};
+
+  if (!$opts{'lsf'}) {
+    $opts{'cmd'} =~ s/\s*-lsf//;
+    $opts{'cmd'} =~ s/\s*-submit_args\s+'[^']*'//;
+  } else {
+    if ($opts{'cmd'} !~ /-lsf/) {
+      $opts{'cmd'} .= " -lsf"
+    }
+    if ($opts{'cmd'} !~ /-submit_args/) {
+      $opts{'cmd'} .= " -submit_args '-J \"$opts{'jobname'}\"'";
+    }
+  }
+
+  if ($opts{'remote'}) {
+
     $opts{'cmd'} = 'run_remote -J "' . $opts{'jobname'} . '" ' . $opts{'cmd'};
   }
 

@@ -65,6 +65,7 @@ GetOptions(                                                                     
 push (@ARGV, ".") if ($#ARGV == -1);
 
 # print Dumper \%opts;
+# print Dumper \@ARGV;
 # }}}
 
 

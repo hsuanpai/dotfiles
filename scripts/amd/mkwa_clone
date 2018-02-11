@@ -130,8 +130,8 @@ echo
 # Source ===============================================================================================================
 (
 cd $src
-echo -e "\n${fg_green}[Bootenv into Source work-area: $PWD]${reset}"
-. /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
+echo -e "\n${fg_green}[loadenv into Source work-area: $PWD]${reset}"
+. /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && loadenv
 
 ## Copy files opened in Source
 echo -e "\n${fg_green}[Create list of files opened/edited in Source work-area...]${reset}"
@@ -152,8 +152,8 @@ if (( $targ_create > 0 )); then
   p4_mkwa -configuration_id ${src_proj}/${src_branch}@${src_cl}
 else
   command cd $targ
-  echo -e "\n${fg_green}[Bootenv into Target work-area: $PWD]${reset}"
-  . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
+  echo -e "\n${fg_green}[loadenv into Target work-area: $PWD]${reset}"
+  . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && loadenv
 
   if [[ "$src_branch" != "$targ_branch" ]]; then
     echo "  Source and Target workareas on a different branch. Will try to change Target workarea's branch\n"
@@ -184,5 +184,5 @@ function finish() {
   echo -e "\n${fg_green}[Cleaning up...]${reset}"
   command rm ${pipe} &> /dev/null
 }
-trap finish EXIT
 
+trap finish EXIT
