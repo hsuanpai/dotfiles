@@ -108,7 +108,7 @@ if [[ -f ${targ}/configuration_id ]]; then
   targ_branch=$(grep -Po "(?<=/)\w+(?=@)" ${targ}/configuration_id)
   targ_cl=$(grep -Po "(?<=@)\d+" ${targ}/configuration_id)
 
-  if [[ "$src_proj" != "$targ_proj" ]]; then
+  if [[ "$src_proj" != "$targ_proj" ]] || [[ "$src_branch" != "$targ_branch" ]]; then
     echo -e "ERROR: Source and Target workareas belong to different projects\n" >&2
     exit 1
   fi
@@ -169,7 +169,17 @@ fi
 echo -e "\n${fg_green}[Copying all modified files from Source...]${reset}"
 while read; do
   echo $REPLY
-  file=$(echo $REPLY | perl -pe 's,^.*?/trunk/|#.*$,,g')
+  if [[ "$src_branch" == *"_trunk" ]]; then
+    file=$(echo $REPLY | perl -pe 's,^.*?/trunk/|#.*$,,g')
+  else
+    file=$(echo $REPLY | perl -pe 's,^.*?/branches/[^/]*/|#.*$,,g')
+  fi
+
+  if [[ "$REPLY" =~ "delete default change" ]]; then
+    p4w delete ${targ}/$file
+    continue;
+  fi
+
   if [[ "$REPLY" =~ "edit default change" ]]; then
     p4w edit $file
   fi
