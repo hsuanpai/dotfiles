@@ -21,10 +21,10 @@
 
 =head1 OPTIONS
 
- -s, --size=NUM      Total size of L3 in MB (4/8/16/32). Default NUM=32
-     --half          L3 is in half-size mode.
-     --hashed        Interpret the address as hashed. Default is unhashed
- -v, --verbose       Verbose mode. Print values of all arguments
+ -s, --size=NUM  Total size of L3 in MB (4/8/16/32). Default NUM=32
+     --half      L3 is in half-size mode.
+     --hashed    Interpret the address as hashed. Default is unhashed
+ -v, --verbose   Verbose mode. Print values of all arguments
 
 =cut
 # }}}1
@@ -75,7 +75,7 @@ foreach my $size (4,8,16,32) {
     last;
   }
 }
-pod2usage(-verbose => 1, -exitval => 1, -message => "ERROR: L3Size=$opts{'size'} is invalid.\n") if (!$isValidSize);
+pod2usage(-verbose => 1, -exitval => 1, -message => "L3Size=$opts{'size'} is invalid") if (!$isValidSize);
 
 
 #=======================================================================================================================
