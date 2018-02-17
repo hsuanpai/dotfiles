@@ -1,7 +1,7 @@
-#!/tool/pandora64/bin/perl -l
+#!/usr/bin/env perl
 
 #=======================================================================================================================
-# Documentation                                                                                                     {{{1
+# Documentation                                                                                                    {{{1
 #
 =head1 NAME
 
@@ -13,7 +13,7 @@
 
 =head1 SYNOPSIS
 
- paddr [OPTIONS] {address}
+ paddr [OPTIONS] <address>
 
 =head1 DESCRIPTION
 
@@ -21,7 +21,10 @@
 
 =head1 OPTIONS
 
-  -v, --verbose       Verbose mode. Print values of all arguments
+ -s, --size=NUM      Total size of L3 in MB (4/8/16/32). Default NUM=32
+     --half          L3 is in half-size mode.
+     --hashed        Interpret the address as hashed. Default is unhashed
+ -v, --verbose       Verbose mode. Print values of all arguments
 
 =cut
 # }}}1
@@ -40,33 +43,51 @@ use strict;
 #use warnings;
 #use diagnostics;
 use Data::Dumper;
-
+$Data::Dumper::Sortkeys = 1;
 
 #=======================================================================================================================
-# Command-line parameter handling                                                                                   {{{1
+# Command-line parameter handling                                                                                  {{{1
 #
-my %opts = (
+our %opts = (
+  'hashed'  => 0,
+  'mode'    => "Full",
+  'size'    => 32,
   'verbose' => 0,
 );
 
 GetOptions(
-  'help|h|?'   => sub { pod2usage( -verbose => 1, -exitval => 0 ); },
-  'test|t',
+  \%opts,
+  'half'      => sub { $opts{'mode'} = "Half"; },
+  'hashed',
+  'size|s=i',
+  'help|h|?'  => sub { pod2usage( -verbose => 1, -exitval => 0 ); },
   'verbose|v!',
-) or pod2usage( -verbose => 1 ) && exit;
+) or pod2usage(-verbose => 1) && exit;
 
 # Dump the input arguments
 print Dumper \%opts if ($opts{verbose});
 
+# Sanitize inputs
+my $isValidSize=0;
+foreach my $size (4,8,16,32) {
+  if ($size == $opts{'size'}) {
+    $isValidSize = 1;
+    last;
+  }
+}
+pod2usage(-verbose => 1, -exitval => 1, -message => "ERROR: L3Size=$opts{'size'} is invalid.\n") if (!$isValidSize);
+
 
 #=======================================================================================================================
-# Main Code                                                                                                         {{{1
+# Main Code                                                                                                        {{{1
 #
-our $addr = hex($ARGV[0]);
+our $addr = $ARGV[0];
 our $hashedAddr = GetAddrBits(51,16,16) | ((GetAddrBits(27,21) ^ GetAddrBits(15,9)) << 9) | GetAddrBits(8,0);
-our $size = 32;
-our $mode = "Full";
+if ($opts{'hashed'}) {
+  ($addr, $hashedAddr) = ($hashedAddr, $addr);
+}
 
+## Helper methods                                                                                                  #{{{2
 sub GetBits {
   my $num    = $_[0];
   my $msb    = $_[1];
@@ -93,75 +114,167 @@ sub GetHAddrBits {
   return GetBits($hashedAddr, $msb, $lsb, $offset);
 }
 
-sub GetInterface {
+sub GetL3MInterface {
   my $in = $_[0];
-  my $interface  = (GetBits($in, 9) == 0 ? 8      : 16) . "MB-";
-  $interface    .= (GetBits($in,20) == 0 ? "Even" : "Odd");
+  my $interface = "L3M-";
+  if ($opts{'size'} == 32) {
+    $interface .= (GetBits($in,20) == 0 ? "Even" : "Odd-");
+    $interface .= (GetBits($in, 9) == 0 ? 8      : 16) . "MB";
+  }
+  elsif ($opts{'size'} == 16) {
+    $interface .= (GetBits($in,19) == 0 ? "Even" : "Odd-");
+    $interface .= (GetBits($in, 8) == 0 ? 8      : 16) . "MB";
+  }
+  elsif ($opts{'size'} == 8) {
+    $interface .= (GetBits($in,18) == 0 ? "Even" : "Odd");
+  }
+  elsif ($opts{'size'} == 4) {
+    $interface .= "Odd";
+  }
 
   return $interface;
 }
+# }}}2
 
-my $hashedIf   = GetInterface((GetAddrBits(21) ^ GetAddrBits(9)) << 1 | GetAddrBits(20));
-
+my $width = 13;
 my @str;
-# push(@str, sprintf " | Tag             | [   51:16] 0x%9x |", GetAddrBits(51,16));
-# push(@str, sprintf " | Hash bits       | [   27:21] 0x%9x |", GetAddrBits(27,21));
-# push(@str, sprintf " | L3Index         | [20,18: 6] 0x%9x |", (GetAddrBits(20,20,19) | GetAddrBits(18,6,6)) >> 6);
-# push(@str, sprintf " | L3SIndex        | [20,18: 9] 0x%9x |", (GetAddrBits(20,20,19) | GetAddrBits(18,9,9)) >> 9);
-# push(@str, sprintf " | L3Slice         | [    8: 6]   %9s |", GetAddrBits(8, 6));
-# push(@str, sprintf " | Even/Odd  Sel   | [      20]   %9s |", GetAddrBits(20,20));
-# push(@str, sprintf " | Sub-cache Sel*1 | [       9]   %9s |", GetAddrBits(9, 9));
-# push(@str, sprintf " | Interface       |                        |");
-# push(@str, sprintf " | L3MTagBank      |              %9s |", "*2");
-# push(@str, sprintf " | L3MTagIndex     | [   18:12] 0x%9x |", GetAddrBits(18,12));
-# push(@str, sprintf " | L3MDataBank     |              %9s |", "*3");
-# push(@str, sprintf " | L3MDataIndex    | [   18:11] 0x%9x |", GetAddrBits(18,11));
-# push(@str, sprintf " | L2Index         | [   15: 6] 0x%9x |", GetAddrBits(15, 6));
-
-my $width = 9;
-push(@str, sprintf " | %-2sM L3 (Full)        | Unhashed    | Hashed      |", $size);
+push(@str, sprintf " | %-20s |        Unhashed |          Hashed |", "$opts{'size'}M-L3 ($opts{'mode'})");
 my $sep = $str[0]; s/[|]/+/g, s/(?<!^)[^+]/-/g, for $sep;
 splice(@str, 0, 0, $sep);
 push(@str, $sep);
-push(@str, sprintf " | Tag          [51:16] | 0x%${width}x | 0x%${width}x |", GetAddrBits(51,16),  GetHAddrBits(51,16));
-push(@str, sprintf " | Hash bits    [27:21] | 0x%${width}x | 0x%${width}x |", GetAddrBits(27,21),  GetHAddrBits(27,21));
-push(@str, sprintf " | L3Index      [20: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(20, 6),  GetHAddrBits(20, 6));
-push(@str, sprintf " | L3SIndex     [20: 9] | 0x%${width}x | 0x%${width}x |", GetAddrBits(20, 9),  GetHAddrBits(20, 9));
-push(@str, sprintf " | L3Slice      [ 8: 6] |   %${width}s |   %${width}s |", GetAddrBits( 8, 6),  GetHAddrBits( 8, 6));
-push(@str, sprintf " | Even/Odd     [   20] |   %${width}s |   %${width}s |", GetAddrBits(20,20),  GetHAddrBits(20,20));
-push(@str, sprintf " | Sub-cache *1 [    9] |   %${width}s |   %${width}s |", GetAddrBits( 9, 9),  GetHAddrBits( 9, 9));
-push(@str, sprintf " | Interface            |   %${width}s |   %${width}s |", GetInterface($addr), GetInterface($hashedAddr));
-push(@str, sprintf " | L3MTagBank   [12:10] |   %${width}s |   %${width}s |", GetAddrBits(12,10),  GetHAddrBits(12,10));
-push(@str, sprintf " | L3MTagIndex  [19:13] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19,13),  GetHAddrBits(19,13));
-push(@str, sprintf " | L3MDataBank  [11:10] |   %${width}s |   %${width}s |", GetAddrBits(11,10),  GetHAddrBits(11,10));
-push(@str, sprintf " | L3MDataIndex [19:12] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19,12),  GetHAddrBits(19,12));
-push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),  GetHAddrBits(15, 6));
-push(@str, $sep);
-push(@str, "");
-push(@str, $sep);
-push(@str, sprintf " | %-2sM L3 (Half)        | Unhashed    | Hashed      |", $size);
-push(@str, $sep);
-push(@str, sprintf " | Tag          [51:16] | 0x%${width}x | 0x%${width}x |", GetAddrBits(51,16),  GetHAddrBits(51,16));
-push(@str, sprintf " | Hash bits    [27:21] | 0x%${width}x | 0x%${width}x |", GetAddrBits(27,21),  GetHAddrBits(27,21));
-push(@str, sprintf " | L3Index   [20,18: 6] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(20,20,19) | GetAddrBits(18,6,6)) >> 6, (GetHAddrBits(20,20,19) | GetHAddrBits(18,6,6)) >> 6);
-push(@str, sprintf " | L3SIndex  [20,18: 9] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(20,20,19) | GetAddrBits(18,9,9)) >> 9, (GetHAddrBits(20,20,19) | GetHAddrBits(18,9,9)) >> 9);
-push(@str, sprintf " | L3Slice      [ 8: 6] |   %${width}s |   %${width}s |", GetAddrBits( 8, 6),  GetHAddrBits( 8, 6));
-push(@str, sprintf " | Even/Odd     [   20] |   %${width}s |   %${width}s |", GetAddrBits(20,20),  GetHAddrBits(20,20));
-push(@str, sprintf " | Sub-cache *1 [    9] |   %${width}s |   %${width}s |", GetAddrBits( 9, 9),  GetHAddrBits( 9, 9));
-push(@str, sprintf " | Interface            |   %${width}s |   %${width}s |", GetInterface($addr), GetInterface($hashedAddr));
-push(@str, sprintf " | L3MTagBank   [12:10] |   %${width}s |   %${width}s |", "*2",                "*2");
-push(@str, sprintf " | L3MTagIndex  [18:12] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,12),  GetHAddrBits(18,12));
-push(@str, sprintf " | L3MDataBank  [11:10] |   %${width}s |   %${width}s |", "*3",                "*3");
-push(@str, sprintf " | L3MDataIndex [18:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,11),  GetHAddrBits(18,11));
-push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),  GetHAddrBits(15, 6));
-push(@str, $sep);
+push(@str, sprintf " | Addr         [51: 0] | 0x%${width}x | 0x%${width}x |", GetAddrBits(51, 0),     GetHAddrBits(51, 0));
+push(@str, sprintf " | Addr         [51: 2] | 0x%${width}x | 0x%${width}x |", GetAddrBits(51, 2),     GetHAddrBits(51, 2));
+push(@str, sprintf " | Tag          [51:16] | 0x%${width}x | 0x%${width}x |", GetAddrBits(51,16),     GetHAddrBits(51,16));
+# push(@str, sprintf " | Hash bits    [27:21] | 0x%${width}x | 0x%${width}x |", GetAddrBits(27,21),     GetHAddrBits(27,21));
 
-push(@str,       "\n *1 : Also known as 8M/16M Select. 0: 16MB, 1: 8MB");
-push(@str,         " *2 : The TagBank  is a two-bit field and is a function of Addr[12:10] and the BankDis bits");
-push(@str,         " *3 : The DataBank is a one-bit field and is a function of Addr[11:10] and the BankDis bits");
+if ($opts{'size'} == 32) {                                                                                         #{{{2
+  if ($opts{'mode'} eq "Full") {                                                                                   #{{{3
+    push(@str, sprintf " | L3Index      [20: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(20, 6),     GetHAddrBits(20, 6));
+    push(@str, sprintf " | L3SIndex     [20: 9] | 0x%${width}x | 0x%${width}x |", GetAddrBits(20, 9),     GetHAddrBits(20, 9));
+    push(@str, sprintf " | L3MTagIndex  [19:13] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19,13),     GetHAddrBits(19,13));
+    push(@str, sprintf " | L3MTagBank   [12:10] |   %${width}s |   %${width}s |", GetAddrBits(12,10),     GetHAddrBits(12,10));
+    push(@str, sprintf " | L3MDataIndex [19:12] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19,12),     GetHAddrBits(19,12));
+    push(@str, sprintf " | L3MDataBank  [11:10] |   %${width}s |   %${width}s |", GetAddrBits(11,10),     GetHAddrBits(11,10));
+  }
+  else {                                                                                                           #{{{3
+    push(@str, sprintf " | L3Index   [20,18: 6] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(20,20,19) | GetAddrBits(18,6,6)) >> 6, (GetHAddrBits(20,20,19) | GetHAddrBits(18,6,6)) >> 6);
+    push(@str, sprintf " | L3SIndex  [20,18: 9] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(20,20,19) | GetAddrBits(18,9,9)) >> 9, (GetHAddrBits(20,20,19) | GetHAddrBits(18,9,9)) >> 9);
+    push(@str, sprintf " | L3MTagIndex  [18:12] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,12),     GetHAddrBits(18,12));
+    push(@str, sprintf " | L3MTagBank   [11:10] |   %${width}s |   %${width}s |", "*2",                   "*2");
+    push(@str, sprintf " | L3MDataIndex [18:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,11),     GetHAddrBits(18,11));
+    push(@str, sprintf " | L3MDataBank  [   10] |   %${width}s |   %${width}s |", "*3",                   "*3");
+  }
+  # }}}3
+  push(@str, sprintf " | Even/Odd     [   20] |   %${width}s |   %${width}s |", GetAddrBits(20,20),     GetHAddrBits(20,20));
+  push(@str, sprintf " | Sub-cache *1 [    9] |   %${width}s |   %${width}s |", GetAddrBits( 9, 9),     GetHAddrBits( 9, 9));
+  push(@str, sprintf " | Interface            |   %${width}s |   %${width}s |", GetL3MInterface($addr), GetL3MInterface($hashedAddr));
+  push(@str, sprintf " | L3Slice      [ 8: 6] |   %${width}s |   %${width}s |", GetAddrBits( 8, 6),     GetHAddrBits( 8, 6));
+  push(@str, sprintf " | ShTagIndex   [15: 9] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 9),     GetHAddrBits(15, 9));
+  push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),     GetHAddrBits(15, 6));
+  push(@str, $sep);
+  push(@str,       "\n *1 : Also known as 8M/16M select. Yes, even for 32M. Deal with it! (0: 16MB, 1: 8MB)");
+
+  if ($opts{'mode'} eq "Half") {
+    push(@str,       " *2 : The TagBank  is a two-bit field and is a function of Addr[11:10] and the BankDis bits");
+    push(@str,       " *3 : The DataBank is a one-bit field and is a function of Addr[10] and the BankDis bits");
+  }
+}
+elsif ($opts{'size'} == 16) {                                                                                      #{{{2
+  if ($opts{'mode'} eq "Full") {                                                                                   #{{{3
+    push(@str, sprintf " | L3Index      [19: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19, 6),     GetHAddrBits(19, 6));
+    push(@str, sprintf " | L3SIndex     [19: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(19, 8),     GetHAddrBits(19, 8));
+    push(@str, sprintf " | L3MTagIndex  [18:12] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,12),     GetHAddrBits(18,12));
+    push(@str, sprintf " | L3MTagBank   [11: 9] |   %${width}s |   %${width}s |", GetAddrBits(11, 9),     GetHAddrBits(11, 9));
+    push(@str, sprintf " | L3MDataIndex [18:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18,11),     GetHAddrBits(18,11));
+    push(@str, sprintf " | L3MDataBank  [10: 9] |   %${width}s |   %${width}s |", GetAddrBits(10, 9),     GetHAddrBits(10, 9));
+  }
+  else {                                                                                                           #{{{3
+    push(@str, sprintf " | L3Index   [19,17: 6] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(19,19,18) | GetAddrBits(17,6,6)) >> 6, (GetHAddrBits(19,19,18) | GetHAddrBits(17,6,6)) >> 6);
+    push(@str, sprintf " | L3SIndex  [19,17: 8] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(19,19,18) | GetAddrBits(17,8,8)) >> 8, (GetHAddrBits(19,19,18) | GetHAddrBits(17,8,8)) >> 8);
+    push(@str, sprintf " | L3MTagIndex  [17:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,11),     GetHAddrBits(17,11));
+    push(@str, sprintf " | L3MTagBank   [10: 9] |   %${width}s |   %${width}s |", "*2",                   "*2");
+    push(@str, sprintf " | L3MDataIndex [17:10] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,10),     GetHAddrBits(17,10));
+    push(@str, sprintf " | L3MDataBank  [    9] |   %${width}s |   %${width}s |", "*3",                   "*3");
+  }
+  # }}}3
+  push(@str, sprintf " | Even/Odd     [   19] |   %${width}s |   %${width}s |", GetAddrBits(19,19),     GetHAddrBits(19,19));
+  push(@str, sprintf " | Sub-cache *1 [    8] |   %${width}s |   %${width}s |", GetAddrBits( 8, 8),     GetHAddrBits( 8, 8));
+  push(@str, sprintf " | Interface            |   %${width}s |   %${width}s |", GetL3MInterface($addr), GetL3MInterface($hashedAddr));
+  push(@str, sprintf " | L3Slice      [ 7: 6] |   %${width}s |   %${width}s |", GetAddrBits( 7, 6),     GetHAddrBits( 7, 6));
+  push(@str, sprintf " | ShTagIndex   [15: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 8),     GetHAddrBits(15, 8));
+  push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),     GetHAddrBits(15, 6));
+  push(@str, $sep);
+  push(@str,       "\n *1 : Also known as 8M/16M select. Yes, even for 32M, Deal with it! (0: 16MB, 1: 8MB)");
+
+  if ($opts{'mode'} eq "Half") {
+    push(@str,       " *2 : The TagBank  is a two-bit field and is a function of Addr[10:9] and the BankDis bits");
+    push(@str,       " *3 : The DataBank is a one-bit field and is a function of Addr[9] and the BankDis bits");
+  }
+}
+elsif ($opts{'size'} == 8) {                                                                                       #{{{2
+  if ($opts{'mode'} eq "Full") {                                                                                   #{{{3
+    push(@str, sprintf " | L3Index      [18: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18, 6),   GetHAddrBits(18, 6));
+    push(@str, sprintf " | L3SIndex     [18: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(18, 8),   GetHAddrBits(18, 8));
+    push(@str, sprintf " | L3MTagIndex  [17:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,11),   GetHAddrBits(17,11));
+    push(@str, sprintf " | L3MTagBank   [10: 8] |   %${width}s |   %${width}s |", GetAddrBits(10, 8),   GetHAddrBits(10, 8));
+    push(@str, sprintf " | L3MDataIndex [17:10] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,10),   GetHAddrBits(17,10));
+    push(@str, sprintf " | L3MDataBank  [ 9: 8] |   %${width}s |   %${width}s |", GetAddrBits( 9, 8),   GetHAddrBits( 9, 8));
+  }
+  else {                                                                                                           #{{{3
+    push(@str, sprintf " | L3Index   [18,16: 6] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(18,18,17) | GetAddrBits(16,6,6)) >> 6, (GetHAddrBits(18,18,17) | GetHAddrBits(16,6,6)) >> 6);
+    push(@str, sprintf " | L3SIndex  [18,16: 8] | 0x%${width}x | 0x%${width}x |", (GetAddrBits(18,18,17) | GetAddrBits(16,8,8)) >> 8, (GetHAddrBits(18,18,17) | GetHAddrBits(16,8,8)) >> 8);
+    push(@str, sprintf " | L3MTagIndex  [16:10] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16,10),   GetHAddrBits(16,10));
+    push(@str, sprintf " | L3MTagBank   [ 9: 8] |   %${width}s |   %${width}s |", "*2",                 "*2");
+    push(@str, sprintf " | L3MDataIndex [16: 9] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16, 9),   GetHAddrBits(16, 9));
+    push(@str, sprintf " | L3MDataBank  [    8] |   %${width}s |   %${width}s |", "*3",                 "*3");
+  }
+  # }}}3
+  push(@str, sprintf " | Even/Odd     [   18] |   %${width}s |   %${width}s |", GetAddrBits(18,18),     GetHAddrBits(18,18));
+  push(@str, sprintf " | Interface            |   %${width}s |   %${width}s |", GetL3MInterface($addr), GetL3MInterface($hashedAddr));
+  push(@str, sprintf " | L3Slice      [ 7: 6] |   %${width}s |   %${width}s |", GetAddrBits( 7, 6),     GetHAddrBits( 7, 6));
+  push(@str, sprintf " | ShTagIndex   [15: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 8),     GetHAddrBits(15, 8));
+  push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),     GetHAddrBits(15, 6));
+  push(@str, $sep);
+  push(@str,       "\n *1 : Also known as 8M/16M select. Yes, even for 32M, Deal with it! (0: 16MB, 1: 8MB)");
+
+  if ($opts{'mode'} eq "Half") {
+    push(@str,       " *2 : The TagBank  is a two-bit field and is a function of Addr[9:8] and the BankDis bits");
+    push(@str,       " *3 : The DataBank is a one-bit field and is a function of Addr[8] and the BankDis bits");
+  }
+}
+elsif ($opts{'size'} == 4) {                                                                                       #{{{2
+  if ($opts{'mode'} eq "Full") {                                                                                   #{{{3
+    push(@str, sprintf " | L3Index      [17: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17, 6),   GetHAddrBits(17, 6));
+    push(@str, sprintf " | L3SIndex     [17: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17, 8),   GetHAddrBits(17, 8));
+    push(@str, sprintf " | L3MTagIndex  [17:11] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,11),   GetHAddrBits(17,11));
+    push(@str, sprintf " | L3MTagBank   [10: 8] |   %${width}s |   %${width}s |", GetAddrBits(10, 8),   GetHAddrBits(10, 8));
+    push(@str, sprintf " | L3MDataIndex [17:10] | 0x%${width}x | 0x%${width}x |", GetAddrBits(17,10),   GetHAddrBits(17,10));
+    push(@str, sprintf " | L3MDataBank  [ 9: 8] |   %${width}s |   %${width}s |", GetAddrBits( 9, 8),   GetHAddrBits( 9, 8));
+  }
+  else {                                                                                                           #{{{3
+    push(@str, sprintf " | L3Index      [16: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16, 6),   GetHAddrBits(16, 6));
+    push(@str, sprintf " | L3SIndex     [16: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16, 8),   GetHAddrBits(16, 8));
+    push(@str, sprintf " | L3MTagIndex  [16:10] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16,10),   GetHAddrBits(16,10));
+    push(@str, sprintf " | L3MTagBank   [ 9: 8] |   %${width}s |   %${width}s |", "*1",                 "*1");
+    push(@str, sprintf " | L3MDataIndex [16: 9] | 0x%${width}x | 0x%${width}x |", GetAddrBits(16, 9),   GetHAddrBits(16, 9));
+    push(@str, sprintf " | L3MDataBank  [    8] |   %${width}s |   %${width}s |", "*2",                 "*2");
+  }
+  # }}}3
+  push(@str, sprintf " | L3Slice      [ 7: 6] |   %${width}s |   %${width}s |", GetAddrBits( 7, 6),     GetHAddrBits( 7, 6));
+  push(@str, sprintf " | ShTagIndex   [15: 8] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 8),     GetHAddrBits(15, 8));
+  push(@str, sprintf " | L2Index      [15: 6] | 0x%${width}x | 0x%${width}x |", GetAddrBits(15, 6),     GetHAddrBits(15, 6));
+  push(@str, $sep);
+
+  if ($opts{'mode'} eq "Half") {
+    push(@str,       " *1 : The TagBank  is a two-bit field and is a function of Addr[9:8] and the BankDis bits");
+    push(@str,       " *2 : The DataBank is a one-bit field and is a function of Addr[8] and the BankDis bits");
+  }
+}
+# }}}2
 
 map {
   s/0x(\s+)/${1}0x/g;
+  s/$/\n/g;
   print;
 } @str;
 
