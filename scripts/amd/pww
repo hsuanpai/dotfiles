@@ -5,12 +5,12 @@ use warnings;
 use diagnostics;
 
 
-$w=$1 if(/^\s*Working Dir: (\S+)/);
-print "\n$s\n$_" if(/^\s+-+$/);
-$s=$_;
+$workarea=$1 if(/^\s*Working Dir: (\S+)/);
+print "\n$signature\n$_" if(/^\s+-+$/);
+$signature=$_;
 
 if(/(?<=^  )Whacker\S+/){
-  $p="$w/$&";
+  $p="$workarea/$&";
   $h{$p}=`grep -Poi -m1 "(?<=error: \\[ cycle\\=)\\d+" $p/sim.out`;
 }
 

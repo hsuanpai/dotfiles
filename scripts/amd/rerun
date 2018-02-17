@@ -22,53 +22,53 @@
 
 =head1 OPTIONS
 
-  -a, --add=STRING         Add STRING to the run_job command. Can be specified multiple times
-                           Overrides --delete
-      --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default. Dumps to agg_dump.txt by default)
-      --noagg-dump         Don't dump aggregator logs to FILE
-  -b, --build              Build model before running
-      --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
-                           NOTE: The build command creates a subdirectory with the name of the model within PATH
-      --nobuildlocal       Don't build the model locally (default)
-  -c, --clean              Clean model and rebuild before running
-                           Implies --build unless --norun is specified
-  -C, --clean-all          Clean all models and rebuild before running
-                           Implies --build unless --norun is specified
-      --cmd=CMD            Provide the cmd directly to clean up and run.
-                           Overrides --file
-      --cov                Sane defaults to run coverage. Appends _cov to model if required and
-                           adds "-p cov -model_cov -vcs_opts '-cg_coverage_control=1'" to the run_job command
-  -d, --delete             Delete any options from the run_job command. Can be specified multiple times
-      --dsp                Enable displayer output (default)
-      --nodsp              Disable displayer output
-  -f, --file=FILE          Pick up the run_job command from FILE
-                           Defaults to tb_sim and failing that, to sim.out and summary.rj
-                           When a jobspec file is specified, --noyaml is set by default
-      --fsdb               Dump waves
-      --nofsdb             Do not dump waves. Defaults to this unless a value is forced
-      --lsf                Submit the job to LSF (default)
-      --nolsf              Run the job locally
-  -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
-      --remote             Launch the run_job command remotely
-      --noremote           Launch the run_job command locally
-      --recompile          Run recompile first before building the model. One or more files can be specified.
-                           If not given any, it'll recompile all files edited after the last build.
-  -r, --run                Execute the run_job (default)
-  -R, --norun              Do not execute the run_job
-      --runlocal           Run simulation locally. Implies --noremote and --nolsf
-      --seed=NUM           Use NUM as seed
-      --noseed             Remove the seed.
-      --spin               Wait till the model is built successfully before launching the run (Uses ~kshenoy/bin/spin)
-  -t, --test               Test run. Just print the command to execute but don't run it
-      --verbose            Verbose mode. Print values of all arguments
-  -v, --vericom            Build vericom target (default)
-      --novericom          Suppress -vericom build target
-  -w, --wtf                Run WhyTheFail upon build failure (default)
-      --nowtf              Do not run WhyTheFail if build fails
-  -y, --yaml               Enable logging via amdmsg_config.yaml (default).
-                           The yaml file to be used can be specified as an optional argument.
-                           Defaults to ~/amdmsg_config.yaml if one is not provided.
-      --noyaml             Disable logging (Delete amdmsg_config.yaml file)
+ -a, --add=STRING         Add STRING to the run_job command. Can be specified multiple times
+                          Overrides --delete
+     --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default. Dumps to agg_dump.txt by default)
+     --noagg-dump         Don't dump aggregator logs to FILE
+ -b, --build              Build model before running
+     --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
+                          NOTE: The build command creates a subdirectory with the name of the model within PATH
+     --nobuildlocal       Don't build the model locally (default)
+ -c, --clean              Clean model and rebuild before running
+                          Implies --build unless --norun is specified
+ -C, --clean-all          Clean all models and rebuild before running
+                          Implies --build unless --norun is specified
+     --cmd=CMD            Provide the cmd directly to clean up and run.
+                          Overrides --file
+     --cov                Sane defaults to run coverage. Appends _cov to model if required and
+                          adds "-p cov -model_cov -vcs_opts '-cg_coverage_control=1'" to the run_job command
+ -d, --delete             Delete any options from the run_job command. Can be specified multiple times
+     --dsp                Enable displayer output (default)
+     --nodsp              Disable displayer output
+ -f, --file=FILE          Pick up the run_job command from FILE
+                          Defaults to tb_sim and failing that, to sim.out and summary.rj
+                          When a jobspec file is specified, --noyaml is set by default
+     --fsdb               Dump waves
+     --nofsdb             Do not dump waves. Defaults to this unless a value is forced
+     --lsf                Submit the job to LSF (default)
+     --nolsf              Run the job locally
+ -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
+     --remote             Launch the run_job command remotely
+     --noremote           Launch the run_job command locally
+     --recompile          Run recompile first before building the model. One or more files can be specified.
+                          If not given any, it'll recompile all files edited after the last build.
+ -r, --run                Execute the run_job (default)
+ -R, --norun              Do not execute the run_job
+     --runlocal           Run simulation locally. Implies --noremote and --nolsf
+     --seed=NUM           Use NUM as seed
+     --noseed             Remove the seed.
+     --spin               Wait till the model is built successfully before launching the run (Uses ~kshenoy/bin/spin)
+ -t, --test               Test run. Just print the command to execute but don't run it
+     --verbose            Verbose mode. Print values of all arguments
+ -v, --vericom            Build vericom target (default)
+     --novericom          Suppress -vericom build target
+ -w, --wtf                Run WhyTheFail upon build failure (default)
+     --nowtf              Do not run WhyTheFail if build fails
+ -y, --yaml               Enable logging via amdmsg_config.yaml (default).
+                          The yaml file to be used can be specified as an optional argument.
+                          Defaults to ~/amdmsg_config.yaml if one is not provided.
+     --noyaml             Disable logging (Delete amdmsg_config.yaml file)
 
 =cut
 # }}}1
