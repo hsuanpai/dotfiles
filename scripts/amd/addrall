@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Address parser
+
+Usage:
+  addr.py [options] <addr>
+  addr.py (-h | --help)
+
+Options:
+  -h, --help        Print this message
+      --half        Treat L3 to be in half-size mode [default: false]
+      --hashed      Interpret specified address as hashed [default: false]
+      --pa48        Address is 48 bits wide [default: false]
+  -s, --size=NUM    Total size of L3 [default: 32]
+      --stacks=NUM  Number of X3D Stacks [default: 0]
+      --debug       Dump extra logging
+"""
+
+from docopt import docopt
+from pprint import pprint
+import re
+
+class BitPos:
+    """Store information about bit positions"""
+
+    def __init__(self, msb, lsb=None, offset=0):
+        self.Msb = msb
+        self.Lsb = lsb if (lsb is not None) else msb
+        self.Offset = offset
+
+    def __repr__(self):
+        from pprint import pformat
+        if self.Offset == 0:
+            return pformat("<BitPos Msb:%d, Lsb:%d>" %(self.Msb, self.Lsb))
+        else:
+            return pformat("<BitPos Msb:%d, Lsb:%d, Offset=%d>" %(self.Msb, self.Lsb, self.Offset))
+
+    def SliceFrom(self, num):
+        mask = (1 << (self.Msb - self.Lsb + 1)) - 1
+        return ((num >> self.Lsb) & mask) << self.Offset
+
+    def Width(self):
+        return self.Msb - self.Lsb + 1
+
+class AddrAll:
+    """ Take a given ADDR and break it into ALL its sub-components"""
+
+    def __init__(self, addr, half, hashed, pa48, size, stacks):
+        self.Addr = int(addr, 16) if re.search(r"^0x", addr) else int(addr)
+        self.Half = half
+        self.Pa48 = pa48
+        self.Size = int(size)
+        self.Stacks = int(stacks)
+
+        self.HashedAddr = self.Addr ^ BitPos(27, 21, 9).SliceFrom(self.Addr)
+        if hashed:
+            self.Addr, self.HashedAddr = self.HashedAddr, self.Addr
+
+        self.MakeParams()
+        self.PrintAddrComp(self.MakeTemplate())
+
+
+    def MakeParams(self):
+        """Identify the MSB and LSB of the address components"""
+        self.Params = {}
+        self.Params['AddrMsb'] = 47 if (self.Pa48) else 51
+        self.Params['SliceLsb'] = 6
+        self.Params['SliceMsb'] = 8 if (self.Size == 32) else 7
+        self.Params['L3MSubCacheSel'] = self.Params['SliceMsb'] + 1 if (self.Size >= 16) else None
+        self.Params['L3MTagLsb'] = 16
+        self.Params['L3MIdxLsb'] = self.Params['L3MSubCacheSel'] + 1 if (self.Params['L3MSubCacheSel'] is not None) else self.Params['SliceMsb'] + 1
+        self.Params['L3MTagBankMsb'] = self.Params['L3MIdxLsb'] + 1 if (self.Half) else self.Params['L3MIdxLsb'] + 2
+        self.Params['L3MTagIdxLsb'] = self.Params['L3MTagBankMsb'] + 1
+        self.Params['L3MDataBankMsb'] = self.Params['L3MIdxLsb'] if (self.Half) else self.Params['L3MIdxLsb'] + 1
+        self.Params['L3MDataIdxLsb'] = self.Params['L3MDataBankMsb'] + 1
+        self.Params['L3MIdxMsb'] = self.Params['L3MTagIdxLsb'] + self.Params['SliceLsb']
+
+        if self.Stacks > 0:
+            self.Params['X3DTagLsb'] = 16
+            self.Params['X3DTagDataBankLsb'] = self.Params['SliceMsb'] + 1
+            self.Params['X3DTagDataBankMsb'] = self.Params['X3DTagDataBankLsb'] + (2 if not self.Half else 1)
+            self.Params['X3DTagDataIdxLsb'] = self.Params['X3DTagDataBankMsb'] + 1
+            self.Params['X3DTagDataIdxMsb'] = 21 - (0 if not self.Half else 1)
+            self.Params['X3DLruBankLsb'] = self.Params['X3DTagDataBankLsb']
+            self.Params['X3DLruBankMsb'] = self.Params['X3DTagDataBankMsb'] - 1
+            self.Params['X3DLruIdxLsb'] = self.Params['X3DLruBankMsb'] + 1
+            self.Params['X3DLruIdxMsb'] = self.Params['X3DTagDataIdxMsb']
+            self.Params['X3DStackSelLsb'] = self.Params['X3DTagDataIdxMsb']
+            self.Params['X3DStackSelMsb'] = self.Params['X3DStackSelLsb'] + 5
+        else:
+            for i in ['X3DTagLsb', 'X3DTagDataBankLsb', 'X3DTagDataBankMsb', 'X3DTagDataIdxLsb', 'X3DTagDataIdxMsb',
+                      'X3DLruBankLsb', 'X3DLruBankMsb', 'X3DLruIdxLsb', 'X3DLruIdxMsb', 'StackSelLsb', 'StackSelMsb']:
+                self.Params[i] = None
+
+        if self.Size < 8:
+            self.Params['L3MEvenOddSel'] = None
+        else:
+            self.Params['L3MEvenOddSel'] = self.Params['L3MIdxMsb'] + 2 if (self.Half) else self.Params['L3MIdxMsb'] + 1
+
+        if args['debug']:
+            pprint(self.Params, width=1)
+            print()
+
+        return self.Params
+
+    def MakeTemplate(self):
+        mode = 'Half' if self.Half else 'Full'
+
+        entry = []
+        entry.append(['Addr', BitPos(self.Params['AddrMsb'], 0)])
+        entry.append(['Addr', BitPos(self.Params['AddrMsb'], 2)])
+        entry.append(['Slice', BitPos(self.Params['SliceMsb'], 6)])
+
+        if self.Params['L3MEvenOddSel'] is None:
+            entry.append(['L3Index', BitPos(self.Params['L3MIdxMsb'], self.Params['SliceLsb'])])
+            entry.append(['L3SIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['SliceMsb'] + 1)])
+        elif self.Half:
+            l3mIdxBP = BitPos(self.Params['L3MIdxMsb'], 6)
+            entry.append(['L3Index', BitPos(self.Params['L3MEvenOddSel'], offset=l3mIdxBP.Width()+1), l3mIdxBP])
+            l3mIdxBP = BitPos(self.Params['L3MIdxMsb'], self.Params['SliceMsb'] + 1)
+            entry.append(['L3SIndex', BitPos(self.Params['L3MEvenOddSel'], offset=l3mIdxBP.Width()+1), l3mIdxBP])
+        else:
+            entry.append(['L3Index', BitPos(self.Params['L3MEvenOddSel'], self.Params['SliceLsb'])])
+            entry.append(['L3SIndex', BitPos(self.Params['L3MEvenOddSel'], self.Params['SliceMsb']+1)])
+
+        entry.append(['Interface'])
+
+        if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
+            entry.append(['X3DStack (*1)'])
+            entry.append(['X3DTag', BitPos(self.Params['AddrMsb'], self.Params['X3DTagLsb'])])
+            entry.append(['X3DIndex (Tag/Data)', BitPos(self.Params['X3DTagDataIdxMsb'], self.Params['X3DTagDataIdxLsb'])])
+            entry.append(['X3DBank  (Tag/Data)' + (' (*2)' if self.Half else ''), BitPos(self.Params['X3DTagDataBankMsb'], self.Params['X3DTagDataBankLsb'])])
+            entry.append(['X3DIndex (Lru)', BitPos(self.Params['X3DLruIdxMsb'], self.Params['X3DLruIdxLsb'])])
+            entry.append(['X3DBank  (Lru)' + (' (*3)' if self.Half else ''), BitPos(self.Params['X3DLruBankMsb'], self.Params['X3DLruBankLsb'])])
+        else:
+            if self.Params['L3MEvenOddSel'] is not None:
+                entry.append(['L3MEvenOddSel', BitPos(self.Params['L3MEvenOddSel'])])
+            if self.Params['L3MSubCacheSel'] is not None:
+                entry.append(['L3MSubCache (*1)', BitPos(self.Params['L3MSubCacheSel'])])
+
+            entry.append(['L3MTag', BitPos(self.Params['AddrMsb'], self.Params['L3MTagLsb'])])
+            entry.append(['L3MTagIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['L3MTagIdxLsb'])])
+            entry.append(['L3MTagBank' + (' (*2)' if self.Half else ''), BitPos(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb'])])
+            entry.append(['L3MDataIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['L3MDataIdxLsb'])])
+            entry.append(['L3MDataBank' + (' (*3)' if self.Half else ''), BitPos(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb'])])
+
+        entry.append(['ShTagIndex', BitPos(15, self.Params['SliceMsb']+1)])
+        entry.append(['L2Index', BitPos(15, 6)])
+
+        # if args['debug']:
+        #     pprint(entry, width=100)
+        #     print()
+
+        return entry
+
+    def GetAddrsFromEntry(self, entry):
+        unhashedBits = 0
+        hashedBits = 0
+
+        for bitPos in entry:
+            if isinstance(bitPos, BitPos):
+                unhashedBits |= bitPos.GetBitsFrom(self.Addr)
+                hashedBits |= bitPos.GetBitsFrom(self.HashedAddr)
+
+        return [unhashedBits, hashedBits]
+
+    def PrintAddrComp(self, entry):
+        mode = 'Full' if (not self.Half) else 'Half'
+        out = [ ["{0}M-L3 ({1})".format(self.Size, mode), "", "Unhashed", "Hashed"] ]
+        longest=[len(out[0][0]), 0, len(out[0][2]), len(out[0][3])]
+
+        for row in entry:
+            if row[0] == "Interface":
+                out.append([row[0], "", self.GetInterface(self.Addr), self.GetInterface(self.HashedAddr)])
+            elif re.search(r"^X3DStack", row[0]):
+                out.append([row[0], "", self.GetX3DStack(), self.GetX3DStack()])
+            else:
+                range = ""
+                hashed = ""
+                unhashed = ""
+                if (len(row) == 2):
+                    range = "[{0:2d}:{1:2d}]".format(row[1].Msb, row[1].Lsb)
+                    unhashed = "0x{0:x}".format(row[1].SliceFrom(self.Addr))
+                    hashed = "0x{0:x}".format(row[1].SliceFrom(self.HashedAddr))
+                elif (len(row) == 3):
+                    range = "[{0:2d},{1:2d}:{2:2d}]".format(row[1].Msb, row[2].Msb, row[2].Lsb)
+                    unhashed = "0x{0:x}".format(row[1].SliceFrom(self.Addr) | row[2].SliceFrom(self.Addr))
+                    hashed = "0x{0:x}".format(row[1].SliceFrom(self.HashedAddr) | row[2].SliceFrom(self.HashedAddr))
+
+                out.append([row[0], range, unhashed, hashed])
+
+            longest[0] = max(longest[0], len(out[-1][0]))
+            longest[1] = max(longest[1], len(out[-1][1]))
+            longest[2] = max(longest[2], len(out[-1][2]))
+            longest[3] = max(longest[3], len(out[-1][3]))
+
+        sep = " +" + "".ljust(longest[0] + longest[1] + 3, '-') + "+" + "".ljust(longest[2] + 2, '-') + "+" + "".ljust(longest[3] + 2, '-') + "+"
+        print(sep)
+        print(" | " + out[0][0].ljust(longest[0] + longest[1] + 1) + " | " + out[0][2].rjust(longest[2]) + " | " + out[0][3].rjust(longest[3]) + " |")
+        print(sep)
+        for row in out[1:]:
+            print(" | " + row[0].ljust(longest[0]) + " " + row[1].rjust(longest[1]) + " | " + row[2].rjust(longest[2]) + " | " + row[3].rjust(longest[3]) + " |")
+        print(sep + "\n")
+
+        if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
+            print(" (*1) X3DStack is a two-bit field and is a function of Addr[{0:2d}:{1:2d}]".format(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']))
+        else:
+            if self.Size > 8:
+                print(" (*1) Also known as 8M/16M select. Yes, even for 32M. Deal with it! (0: 16MB, 1: 8MB)")
+            if self.Half:
+                print(" (*2) The TagBank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb']))
+                print(" (*3) The DataBank is a one-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb']))
+
+    def GetInterface(self, addr):
+        if self.Stacks > 0:
+            layers = 2 * self.Stacks + 1
+            if BitPos(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']).SliceFrom(addr) % layers != 0:
+                return "X3D"
+
+        interface = "L3M-"
+        if self.Size == 4:
+            interface += "Odd"
+        else:
+            interface += "Odd" if (BitPos(self.Params['L3MEvenOddSel']).SliceFrom(addr) == 1) else "Even"
+            if self.Size > 8:
+                interface +="-8MB" if (BitPos(self.Params['L3MSubCacheSel']).SliceFrom(addr) == 0) else "-16MB"
+
+        return interface
+
+    def GetX3DStack(self):
+        if self.Stacks == 0:
+            raise ValueError("GetX3DStack() was called when the configuration doesn't have X3D")
+
+        layers = 2 * self.Stacks + 1
+        stack_sel = BitPos(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']).SliceFrom(self.Addr) % layers
+        if stack_sel == 0:
+            return "L3M"
+        else:
+            return str((stack_sel - 1) >> 1)
+
+# __main__
+# Option handling
+args = {arg.lstrip('-<') : value for arg, value in docopt(__doc__).items()}
+args = {arg.rstrip('>') : value for arg, value in args.items()}
+
+if args['debug']:
+    pprint(args, indent=2)
+    print()
+
+parse = AddrAll(args['addr'], args['half'], args['hashed'], args['pa48'], args['size'], args['stacks'])

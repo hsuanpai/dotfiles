@@ -82,10 +82,12 @@ pod2usage(-verbose => 1, -exitval => 1, -message => "L3Size=$opts{'size'} is inv
 # Main Code                                                                                                        {{{1
 #
 our $addr = $ARGV[0];
+$addr = hex($addr) if ($addr =~ /^0x|[a-fA-F]/);
 our $hashedAddr = GetAddrBits(51,16,16) | ((GetAddrBits(27,21) ^ GetAddrBits(15,9)) << 9) | GetAddrBits(8,0);
 if ($opts{'hashed'}) {
   ($addr, $hashedAddr) = ($hashedAddr, $addr);
 }
+# printf("Addr=0x%x, HashedAddr=0x%x\n", $addr, $hashedAddr);
 
 ## Helper methods                                                                                                  #{{{2
 sub GetBits {
