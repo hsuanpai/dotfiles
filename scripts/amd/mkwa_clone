@@ -176,15 +176,18 @@ while read; do
   fi
 
   if [[ "$REPLY" =~ "delete default change" ]]; then
+    echo "p4w delete ${targ}/$file"
     p4w delete ${targ}/$file
     continue;
   fi
 
   if [[ "$REPLY" =~ "edit default change" ]]; then
     p4w edit $file
+    command cp ${src}/$file ${targ}/$file
   fi
-  command cp ${src}/$file ${targ}/$file
   if [[ "$REPLY" =~ "add default change" ]]; then
+    command mkdir -p $(command dirname ${targ}/$file)
+    command cp ${src}/$file ${targ}/$file
     p4w add ${targ}/$file
   fi
 done < ${pipe}
