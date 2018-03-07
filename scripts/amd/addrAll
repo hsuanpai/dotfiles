@@ -138,7 +138,7 @@ class AddrAll:
             if self.Params['L3MEvenOddSel'] is not None:
                 entry.append(['L3MEvenOddSel', BitPos(self.Params['L3MEvenOddSel'])])
             if self.Params['L3MSubCacheSel'] is not None:
-                entry.append(['L3MSubCache (*1)', BitPos(self.Params['L3MSubCacheSel'])])
+                entry.append(['L3MSubCache', BitPos(self.Params['L3MSubCacheSel'])])
 
             entry.append(['L3MTag', BitPos(self.Params['AddrMsb'], self.Params['L3MTagLsb'])])
             entry.append(['L3MTagIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['L3MTagIdxLsb'])])
@@ -207,11 +207,9 @@ class AddrAll:
         if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
             print(" (*1) X3DStack is a two-bit field and is a function of Addr[{0:2d}:{1:2d}]".format(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']))
         else:
-            if self.Size > 8:
-                print(" (*1) Also known as 8M/16M select. Yes, even for 32M. Deal with it! (0: 16MB, 1: 8MB)")
             if self.Half:
-                print(" (*2) The TagBank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb']))
-                print(" (*3) The DataBank is a one-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb']))
+                print(" (*1) The TagBank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb']))
+                print(" (*2) The DataBank is a one-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb']))
 
     def GetInterface(self, addr):
         if self.Stacks > 0:
