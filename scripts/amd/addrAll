@@ -68,27 +68,28 @@ class AddrAll:
         self.Params['AddrMsb'] = 47 if (self.Pa48) else 51
         self.Params['SliceLsb'] = 6
         self.Params['SliceMsb'] = 8 if (self.Size == 32) else 7
+
         self.Params['L3MSubCacheSel'] = self.Params['SliceMsb'] + 1 if (self.Size >= 16) else None
-        self.Params['L3MTagLsb'] = 16
         self.Params['L3MIdxLsb'] = self.Params['L3MSubCacheSel'] + 1 if (self.Params['L3MSubCacheSel'] is not None) else self.Params['SliceMsb'] + 1
         self.Params['L3MTagBankMsb'] = self.Params['L3MIdxLsb'] + 1 if (self.Half) else self.Params['L3MIdxLsb'] + 2
         self.Params['L3MTagIdxLsb'] = self.Params['L3MTagBankMsb'] + 1
         self.Params['L3MDataBankMsb'] = self.Params['L3MIdxLsb'] if (self.Half) else self.Params['L3MIdxLsb'] + 1
         self.Params['L3MDataIdxLsb'] = self.Params['L3MDataBankMsb'] + 1
-        self.Params['L3MIdxMsb'] = self.Params['L3MTagIdxLsb'] + self.Params['SliceLsb']
+        self.Params['L3MIdxMsb'] = self.Params['L3MTagIdxLsb'] + 6
+        self.Params['L3MTagLsb'] = 16
 
         if self.Stacks > 0:
-            self.Params['X3DTagLsb'] = 16
             self.Params['X3DTagDataBankLsb'] = self.Params['SliceMsb'] + 1
             self.Params['X3DTagDataBankMsb'] = self.Params['X3DTagDataBankLsb'] + (2 if not self.Half else 1)
-            self.Params['X3DTagDataIdxLsb'] = self.Params['X3DTagDataBankMsb'] + 1
-            self.Params['X3DTagDataIdxMsb'] = 21 - (0 if not self.Half else 1)
             self.Params['X3DLruBankLsb'] = self.Params['X3DTagDataBankLsb']
             self.Params['X3DLruBankMsb'] = self.Params['X3DTagDataBankMsb'] - 1
+            self.Params['X3DTagDataIdxLsb'] = self.Params['X3DTagDataBankMsb'] + 1
+            self.Params['X3DTagDataIdxMsb'] = 21 - (0 if not self.Half else 1)
             self.Params['X3DLruIdxLsb'] = self.Params['X3DLruBankMsb'] + 1
             self.Params['X3DLruIdxMsb'] = self.Params['X3DTagDataIdxMsb']
-            self.Params['X3DStackSelLsb'] = self.Params['X3DTagDataIdxMsb']
-            self.Params['X3DStackSelMsb'] = self.Params['X3DStackSelLsb'] + 5
+            self.Params['X3DStackSelLsb'] = 21
+            self.Params['X3DStackSelMsb'] = 26
+            self.Params['X3DTagLsb'] = 21
         else:
             for i in ['X3DTagLsb', 'X3DTagDataBankLsb', 'X3DTagDataBankMsb', 'X3DTagDataIdxLsb', 'X3DTagDataIdxMsb',
                       'X3DLruBankLsb', 'X3DLruBankMsb', 'X3DLruIdxLsb', 'X3DLruIdxMsb', 'StackSelLsb', 'StackSelMsb']:
@@ -142,9 +143,9 @@ class AddrAll:
 
             entry.append(['L3MTag', BitPos(self.Params['AddrMsb'], self.Params['L3MTagLsb'])])
             entry.append(['L3MTagIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['L3MTagIdxLsb'])])
-            entry.append(['L3MTagBank' + (' (*2)' if self.Half else ''), BitPos(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb'])])
+            entry.append(['L3MTagBank' + (' (*1)' if self.Half else ''), BitPos(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb'])])
             entry.append(['L3MDataIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['L3MDataIdxLsb'])])
-            entry.append(['L3MDataBank' + (' (*3)' if self.Half else ''), BitPos(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb'])])
+            entry.append(['L3MDataBank' + (' (*2)' if self.Half else ''), BitPos(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb'])])
 
         entry.append(['ShTagIndex', BitPos(15, self.Params['SliceMsb']+1)])
         entry.append(['L2Index', BitPos(15, 6)])
@@ -206,10 +207,13 @@ class AddrAll:
 
         if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
             print(" (*1) X3DStack is a two-bit field and is a function of Addr[{0:2d}:{1:2d}]".format(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']))
+            if self.Half:
+                print(" (*2) The Tag/Data Bank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['X3DTagDataBankMsb'], self.Params['X3DTagDataBankLsb']))
+                print(" (*3) The Lru Bank is a one-bit field and is a function of Addr[{0:d}] and the BankDis bits".format(self.Params['X3DLruBankMsb']))
         else:
             if self.Half:
                 print(" (*1) The TagBank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MTagBankMsb'], self.Params['L3MIdxLsb']))
-                print(" (*2) The DataBank is a one-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['L3MDataBankMsb'], self.Params['L3MIdxLsb']))
+                print(" (*2) The DataBank is a one-bit field and is a function of Addr[{0:d}] and the BankDis bits".format(self.Params['L3MDataBankMsb']))
 
     def GetInterface(self, addr):
         if self.Stacks > 0:
