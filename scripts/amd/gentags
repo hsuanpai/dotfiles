@@ -4,9 +4,9 @@
 
 ## Default variables                                                                                                {{{1
 _workarea="${REPO_PATH:+$REPO_PATH}"
-_create_tags=""
-_create_cscope=""
-_update_tags=""
+_create_tags=false
+_create_cscope=false
+_update_tags=false
 _filelist=${_workarea}/.tag_filelist
 _tagfile=${_workarea}/.tags
 _tagdirs=()
@@ -54,17 +54,16 @@ while (( $# > 0 )); do
   #echo "DEBUG: Arg:'$1'"
   case $1 in
     --create|-c)
-      _create_tags="1"
-      _create_cscope="1"
-      _update=""
+      _create_tags=true
+      _create_cscope=true
       ;;
 
     --create-tags)
-      _create_tags="1"
+      _create_tags=true
       ;;
 
     --create-cscope)
-      _create_cscope="1"
+      _create_cscope=true
       ;;
 
     -w)
@@ -73,13 +72,13 @@ while (( $# > 0 )); do
       ;;
 
     --update|-u)
-      _update_tags="1"
-      _create_cscope="1"
+      _update_tags=true
+      _create_cscope=true
       _create=""
       ;;
 
     --update-tags)
-      _update_tags="1"
+      _update_tags=true
       ;;
 
     -*)
@@ -109,7 +108,7 @@ fi
 export CSCOPE_DB=${_workarea}/.cscope.out
 
 ## Create _filelist                                                                                                 {{{1
-if [[ -n $_update_tags ]] && [[ -f $_tagfile ]]; then
+if [[ $_update_tags == true ]] && [[ -f $_tagfile ]]; then
   if [[ ! -s $_filelist ]]; then
     # grep for depot as it'll get rid of the No opened files message
     p4 opened 2> /dev/null | sed 's/#.*$//' | command xargs p4 where | cut -d " " -f3 >| $_filelist
@@ -175,7 +174,7 @@ fi
 
 
 (
-if [[ -n $_create_tags ]]; then
+if [[ $_create_tags == true ]]; then
   # echo ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
   ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
   ~kshenoy/bin/gtags -f $_filelist 2> /dev/null &
@@ -191,7 +190,7 @@ fi
 
 ## Generate cscope database                                                                                         {{{1
 (
-if [[ -n $_create_cscope ]]; then
+if [[ $_create_cscope == true ]]; then
   #echo $CSCOPE_DB
   cscope -bqk -i $_filelist -f $CSCOPE_DB 2> /dev/null
   # command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':cscope reset<CR>'

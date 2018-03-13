@@ -109,7 +109,7 @@ if [[ -f ${targ}/configuration_id ]]; then
   targ_cl=$(grep -Po "(?<=@)\d+" ${targ}/configuration_id)
 
   if [[ "$src_proj" != "$targ_proj" ]] || [[ "$src_branch" != "$targ_branch" ]]; then
-    echo -e "ERROR: Source and Target workareas belong to different projects\n" >&2
+    echo -e "ERROR: Source and Target workareas belong to different branches\n" >&2
     exit 1
   fi
 else
@@ -154,11 +154,6 @@ else
   command cd $targ
   echo -e "\n${fg_green}[loadenv into Target work-area: $PWD]${reset}"
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && loadenv
-
-  if [[ "$src_branch" != "$targ_branch" ]]; then
-    echo "  Source and Target workareas on a different branch. Will try to change Target workarea's branch\n"
-    p4_mkwa -change_branch ${src_branch}
-  fi
 
   if (( $targ_upd > 0 )); then
     echo -e "\n${fg_green}[Updating Target work-area to CL=${src_cl}]${reset}"

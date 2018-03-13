@@ -89,7 +89,7 @@ class AddrAll:
             self.Params['X3DLruIdxMsb'] = self.Params['X3DTagDataIdxMsb']
             self.Params['X3DStackSelLsb'] = 21
             self.Params['X3DStackSelMsb'] = 26
-            self.Params['X3DTagLsb'] = 21
+            self.Params['X3DTagLsb'] = 20
         else:
             for i in ['X3DTagLsb', 'X3DTagDataBankLsb', 'X3DTagDataBankMsb', 'X3DTagDataIdxLsb', 'X3DTagDataIdxMsb',
                       'X3DLruBankLsb', 'X3DLruBankMsb', 'X3DLruIdxLsb', 'X3DLruIdxMsb', 'StackSelLsb', 'StackSelMsb']:
@@ -208,7 +208,7 @@ class AddrAll:
         if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
             print(" (*1) X3DStack is a two-bit field and is a function of Addr[{0:2d}:{1:2d}]".format(self.Params['X3DStackSelMsb'], self.Params['X3DStackSelLsb']))
             if self.Half:
-                print(" (*2) The Tag/Data Bank  is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['X3DTagDataBankMsb'], self.Params['X3DTagDataBankLsb']))
+                print(" (*2) The Tag/Data Bank is a two-bit field and is a function of Addr[{0:d}:{1:d}] and the BankDis bits".format(self.Params['X3DTagDataBankMsb'], self.Params['X3DTagDataBankLsb']))
                 print(" (*3) The Lru Bank is a one-bit field and is a function of Addr[{0:d}] and the BankDis bits".format(self.Params['X3DLruBankMsb']))
         else:
             if self.Half:
