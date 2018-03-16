@@ -69,16 +69,11 @@ class AddrAll:
         self.Params['SliceLsb'] = 6
         self.Params['SliceMsb'] = 8 if (self.Size == 32) else 7
 
-        self.Params['L3MSubCacheSel'] = self.Params['SliceMsb'] + 1 if (self.Size >= 16) else None
-        self.Params['L3MIdxLsb'] = self.Params['L3MSubCacheSel'] + 1 if (self.Params['L3MSubCacheSel'] is not None) else self.Params['SliceMsb'] + 1
-        self.Params['L3MTagBankMsb'] = self.Params['L3MIdxLsb'] + 1 if (self.Half) else self.Params['L3MIdxLsb'] + 2
-        self.Params['L3MTagIdxLsb'] = self.Params['L3MTagBankMsb'] + 1
-        self.Params['L3MDataBankMsb'] = self.Params['L3MIdxLsb'] if (self.Half) else self.Params['L3MIdxLsb'] + 1
-        self.Params['L3MDataIdxLsb'] = self.Params['L3MDataBankMsb'] + 1
-        self.Params['L3MIdxMsb'] = self.Params['L3MTagIdxLsb'] + 6
-        self.Params['L3MTagLsb'] = 16
-
         if self.Stacks > 0:
+            for i in ['L3MSubCacheSel', 'L3MIdxLsb', 'L3MTagBankMsb', 'L3MTagIdxLsb', 'L3MDataBankMsb', 'L3MDataIdxLsb',
+                      'L3MIdxMsb', 'L3MTagLsb', 'L3MEvenOddSel']:
+                self.Params[i] = None
+
             self.Params['X3DTagDataBankLsb'] = self.Params['SliceMsb'] + 1
             self.Params['X3DTagDataBankMsb'] = self.Params['X3DTagDataBankLsb'] + (2 if not self.Half else 1)
             self.Params['X3DLruBankLsb'] = self.Params['X3DTagDataBankLsb']
@@ -95,10 +90,19 @@ class AddrAll:
                       'X3DLruBankLsb', 'X3DLruBankMsb', 'X3DLruIdxLsb', 'X3DLruIdxMsb', 'StackSelLsb', 'StackSelMsb']:
                 self.Params[i] = None
 
-        if self.Size < 8:
-            self.Params['L3MEvenOddSel'] = None
-        else:
-            self.Params['L3MEvenOddSel'] = self.Params['L3MIdxMsb'] + 2 if (self.Half) else self.Params['L3MIdxMsb'] + 1
+            self.Params['L3MSubCacheSel'] = self.Params['SliceMsb'] + 1 if (self.Size >= 16) else None
+            self.Params['L3MIdxLsb'] = self.Params['L3MSubCacheSel'] + 1 if (self.Params['L3MSubCacheSel'] is not None) else self.Params['SliceMsb'] + 1
+            self.Params['L3MTagBankMsb'] = self.Params['L3MIdxLsb'] + 1 if (self.Half) else self.Params['L3MIdxLsb'] + 2
+            self.Params['L3MTagIdxLsb'] = self.Params['L3MTagBankMsb'] + 1
+            self.Params['L3MDataBankMsb'] = self.Params['L3MIdxLsb'] if (self.Half) else self.Params['L3MIdxLsb'] + 1
+            self.Params['L3MDataIdxLsb'] = self.Params['L3MDataBankMsb'] + 1
+            self.Params['L3MIdxMsb'] = self.Params['L3MTagIdxLsb'] + 6
+            self.Params['L3MTagLsb'] = 16
+
+            if self.Size < 8:
+                self.Params['L3MEvenOddSel'] = None
+            else:
+                self.Params['L3MEvenOddSel'] = self.Params['L3MIdxMsb'] + 2 if (self.Half) else self.Params['L3MIdxMsb'] + 1
 
         if args['debug']:
             pprint(self.Params, width=1)
@@ -114,7 +118,10 @@ class AddrAll:
         entry.append(['Addr', BitPos(self.Params['AddrMsb'], 2)])
         entry.append(['Slice', BitPos(self.Params['SliceMsb'], 6)])
 
-        if self.Params['L3MEvenOddSel'] is None:
+        if (self.Stacks > 0) and (self.GetInterface(self.Addr) == 'X3D'):
+            entry.append(['L3Index', BitPos(self.Params['X3DTagDataIdxMsb'], self.Params['SliceLsb'])])
+            entry.append(['L3SIndex', BitPos(self.Params['X3DTagDataIdxMsb'], self.Params['X3DTagDataBankLsb'])])
+        elif self.Params['L3MEvenOddSel'] is None:
             entry.append(['L3Index', BitPos(self.Params['L3MIdxMsb'], self.Params['SliceLsb'])])
             entry.append(['L3SIndex', BitPos(self.Params['L3MIdxMsb'], self.Params['SliceMsb'] + 1)])
         elif self.Half:
