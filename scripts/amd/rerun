@@ -24,7 +24,7 @@
 
  -a, --add=STRING         Add STRING to the run_job command. Can be specified multiple times
                           Overrides --delete
-     --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default. Dumps to agg_dump.txt by default)
+     --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default)
      --noagg-dump         Don't dump aggregator logs to FILE
  -b, --build              Build model before running
      --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
@@ -96,7 +96,7 @@ my %opts = (
   'add'              =>  "",
   'agg_dump_f'       =>  0,
   'agg_dump'         =>  1,
-  'agg_dump_file'    =>  "agg_dump.txt",
+  'agg_dump_file'    =>  "",
   'build'            =>  0,
   'builddir'         =>  "",
   'buildlocal'       =>  0,
@@ -574,12 +574,16 @@ if ( $opts{'run'} ) {
 
   ## Include/Exclude logs
   if ($opts{'agg_dump_f'}) {
-    $opts{'cmd'} =~ s/[^-]-agg_dump\s+[^\s"]+//;
+    $opts{'cmd'} =~ s/-?-agg_dump(\s+[^\s"]+|_on)//;
   }
   if (  ($opts{'cmd'} !~ /agg_dump/)
      && $opts{'agg_dump'}
      ) {
-    $opts{'cmd'} .= ' -avf "-agg_dump ' . $opts{'agg_dump_file'} . '"';
+    if ($opts{'agg_dump_file'} ne "") {
+      $opts{'cmd'} .= ' -avf "-agg_dump ' . $opts{'agg_dump_file'} . '"';
+    } else {
+      $opts{'cmd'} .= ' -avf "--agg_dump_on"';
+    }
   }
 
   ## Include/Exclude waves
