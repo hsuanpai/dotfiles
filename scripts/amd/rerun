@@ -582,7 +582,7 @@ if ( $opts{'run'} ) {
     if ($opts{'agg_dump_file'} ne "") {
       $opts{'cmd'} .= ' -avf "-agg_dump ' . $opts{'agg_dump_file'} . '"';
     } else {
-      $opts{'cmd'} .= ' -avf "--agg_dump_on"';
+      $opts{'cmd'} .= ' -avf --agg_dump_on';
     }
   }
 
