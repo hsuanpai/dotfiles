@@ -1,6 +1,7 @@
 #!/tool/pandora64/bin/bash
 
 #echo "CMD: '$0 $@'"
+# NOTE: true and false are not bools but simple executables in /bin which return true and false respectively
 
 ## Default variables                                                                                                {{{1
 _workarea="${REPO_PATH:+$REPO_PATH}"
@@ -174,11 +175,12 @@ fi
 
 
 (
-if [[ $_create_tags == true ]]; then
-  # echo ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
-  ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+afimnsSt --c++-kinds=+cdefgmnstuv --extra=+q -L $_filelist -f $_tagfile 2> /dev/null &
+if $_create_tags; then
+  # :CtrlPTags gets really slow with a large tag file containing lots of info so I'm restricting to what's strictly necessary
+  # NOTE: Most options in --fields and --c++-kinds are enabled/disabled by default and have not been specified.
+  #       This is the full list of options: --fields=+aS-fiKklmnstzrRZEx --c++-kinds=+cdefgmstv-lnpuxzLN
+  ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+a-fkst --c++-kinds=-nu -L $_filelist -f $_tagfile 2> /dev/null &
   ~kshenoy/bin/gtags -f $_filelist 2> /dev/null &
-  #command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':echo "Updated ctags"<CR>'
 fi
 
 # Clean-up the tags file by deleting fold markers etc.
@@ -190,10 +192,9 @@ fi
 
 ## Generate cscope database                                                                                         {{{1
 (
-if [[ $_create_cscope == true ]]; then
+if $_create_cscope; then
   #echo $CSCOPE_DB
   cscope -bqk -i $_filelist -f $CSCOPE_DB 2> /dev/null
-  # command vim --serverlist | command grep -i $REPO_PATH | command xargs -n1 -I{} vim --servername {} --remote-send ':cscope reset<CR>'
 fi
 ) &
 # }}}1
