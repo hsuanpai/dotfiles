@@ -29,7 +29,7 @@
  -b, --build              Build model before running
      --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
                           NOTE: The build command creates a subdirectory with the name of the model within PATH
-     --nobuildlocal       Don't build the model locally (default)
+     --nobuildlocal       Don't build the model locally (default: true)
  -c, --clean              Clean model and rebuild before running
                           Implies --build unless --norun is specified
  -C, --clean-all          Clean all models and rebuild before running
@@ -44,14 +44,15 @@
                           When a jobspec file is specified, --noyaml is set by default
      --fsdb               Dump waves
      --nofsdb             Do not dump waves. Defaults to this unless a value is forced
-     --lsf                Submit the job to LSF (default)
+     --lsf                Submit the job to LSF (default: true)
      --nolsf              Run the job locally
+     --lsf-queue          LSF queue to submit the job to (default: high)
  -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
      --remote             Launch the run_job command remotely
      --noremote           Launch the run_job command locally
      --recompile          Run recompile first before building the model. One or more files can be specified.
                           If not given any, it'll recompile all files edited after the last build.
- -r, --run                Execute the run_job (default)
+ -r, --run                Execute the run_job (default: true)
  -R, --norun              Do not execute the run_job
      --runlocal           Run simulation locally. Implies --noremote and --nolsf
      --seed=NUM           Use NUM as seed
@@ -109,6 +110,7 @@ my %opts = (
   'fsdb'             =>  -1,
   'jobname'          =>  "",
   'lsf'              =>  1,
+  'lsf_queue'        =>  "high",
   'model'            =>  "",
   'recompile'        =>  0,
   'recompile_files'  =>  [],
@@ -625,13 +627,20 @@ if ( $opts{'run'} ) {
       $opts{'cmd'} .= " -lsf"
     }
     if ($opts{'cmd'} !~ /-submit_args/) {
-      $opts{'cmd'} .= " -submit_args '-J \"$opts{'jobname'}\"'";
+      $opts{'cmd'} .= " -submit_args '-q $opts{'lsf_queue'} -J \"$opts{'jobname'}\"'";
+    }
+    elsif ($opts{'cmd'} !~ /-submit_args\s+'[^']*-q\s+$opts{'lsf_queue'}/) {
+      $opts{'cmd'} =~ s/(-submit_args\s+')([^']*)(?:-q\s+(\w+))(?=[^']*')/$1-q $opts{'lsf_queue'} $2/;
+      # print "    INFO: Changing LSF queue from $3 to $opts{'lsf_queue'}\n";
     }
   }
 
   if ($opts{'remote'}) {
-
-    $opts{'cmd'} = 'run_remote -J "' . $opts{'jobname'} . '" ' . $opts{'cmd'};
+    $opts{'cmd'} = 'run_remote -J "' . $opts{'jobname'} . '"';
+    if ($opts{'queue'} ne "high") {
+      $opts{'cmd'} .= ' -q ' . $opts{'lsf_queue'};
+    }
+    $opts {'cmd'} .= ' ' . $opts{'cmd'};
   }
 
   if ($opts{'remote'}) {
