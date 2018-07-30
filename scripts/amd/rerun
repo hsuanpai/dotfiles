@@ -45,13 +45,14 @@
      --fsdb               Dump waves
      --nofsdb             Do not dump waves. Defaults to this unless a value is forced
      --lsf                Submit the job to LSF (default: true)
-     --nolsf              Run the job locally
+     --nolsf              Don't submit the job to LSF
      --lsf-queue          LSF queue to submit the job to (default: high)
  -m, --model=MODEL        Use MODEL instead of the one obtained from the run_job command
      --remote             Launch the run_job command remotely
-     --noremote           Launch the run_job command locally
+     --noremote           Don't launch the run_job remotely
      --recompile          Run recompile first before building the model. One or more files can be specified.
                           If not given any, it'll recompile all files edited after the last build.
+     --norecompile        Skip recompile step (directly build the model if --build is specified)
  -r, --run                Execute the run_job (default: true)
  -R, --norun              Do not execute the run_job
      --runlocal           Run simulation locally. Implies --noremote and --nolsf
