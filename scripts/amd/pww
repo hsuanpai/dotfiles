@@ -16,6 +16,6 @@ if(/(?<=^  )Whacker\S+/){
 
 if(/^\s*$/){
   chomp %h;
-  print "  <$h{$_}> $_" foreach sort{$h{$a}<=>$h{$b}}keys %h;
+  print "  <$h{$_}> $_" foreach sort{$h{$a}<=>$h{$b}} keys %h;
   %h=();
 }
