@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 ##======================================================================================================================
 ## Documentation                                                                                                    {{{1
@@ -27,9 +27,9 @@
      --agg-dump[=FILE]    Dump aggregator logs to FILE (enabled by default)
      --noagg-dump         Don't dump aggregator logs to FILE
  -b, --build              Build model before running
-     --buildlocal[=PATH]  Build model locally in the PATH/Use the local build for the run_job command
+     --buildloc[=PATH]    Build model locally in the PATH/Use the local build for the run_job command
                           NOTE: The build command creates a subdirectory with the name of the model within PATH
-     --nobuildlocal       Don't build the model locally (default: true)
+     --nobuildloc         Don't build the model locally (default: true)
  -c, --clean              Clean model and rebuild before running
                           Implies --build unless --norun is specified
  -C, --clean-all          Clean all models and rebuild before running
@@ -81,6 +81,7 @@ use Cwd;
 use Cwd 'abs_path';
 use File::Basename;
 use Data::Dumper;
+use List::MoreUtils qw(uniq);
 #use Term::ANSIColor qw(:constants);
 
 
@@ -101,7 +102,7 @@ my %opts = (
   'agg_dump_file'    =>  "",
   'build'            =>  0,
   'builddir'         =>  "",
-  'buildlocal'       =>  0,
+  'buildloc'         =>  0,
   'clean'            =>  0,
   'clean_all'        =>  0,
   'cmd'              =>  "",
@@ -109,7 +110,7 @@ my %opts = (
   'delete'           =>  "",
   'file'             =>  "tb_sim",
   'fsdb'             =>  -1,
-  'jobname'          =>  "",
+  'jobname'          =>  getppid() . "__" . getcwd(),
   'lsf'              =>  1,
   'lsf_queue'        =>  "high",
   'model'            =>  "",
@@ -142,10 +143,10 @@ GetOptions(                                                                     
                                $opts{'agg_dump'} = 0;
                              },
   'build|b!',
-  'buildlocal:s'      => sub { $opts{'buildlocal'} = 1;
+  'buildloc:s'        => sub { $opts{'buildloc'} = 1;
                                $opts{'builddir'} = $_[1] if ($_[1] ne "");
                              },
-  'nobuildlocal'      => sub { $opts{'buildlocal'} = -1; },
+  'nobuildloc'        => sub { $opts{'buildloc'} = -1; },
   'clean|c',
   'clean-all|C'       => sub { $opts{'clean_all'} = 1;
                                $opts{'clean'} = 0;
@@ -159,6 +160,7 @@ GetOptions(                                                                     
   'lsf!'              => sub { $opts{$_[0]} = $_[1];
                                $opts{'remote'} = 0 if $_[1];
                              },
+  'lsf-queue=s'       => sub { $opts{'lsf_queue'} = $_[1]; },
   'model|m=s',
   'recompile!',
   'remote!'           => sub { $opts{$_[0]} = $_[1];
@@ -209,15 +211,15 @@ if ($opts{'recompile'}) {
 ## |     -1 | --noseed was specified, remove --seed from the command-line                         |
 ## |--------+-------------------------------------------------------------------------------------|
 
-## |------------+------------------------------------------------------------------------------------------------------|
-## | buildlocal | Description                                                                                          |
-## |------------+------------------------------------------------------------------------------------------------------|
-## |         -1 | User used the --nobuildlocal option. Do not build locally.                                           |
-## |          0 | Neither --buildlocal nor --nobuildlocal was used. Follow previous run_job command                    |
-## |          1 | User used --buildlocal option without any argument. Check the run_job command for -buildlocal switch.|
-## |            | If it hasn't been specified, default to $PWD/buildlocal                                              |
-## |          1 | User used --buildlocal option with an argument. Use that to build locally                            |
-## |------------+------------------------------------------------------------------------------------------------------|
+## |----------+---------------------------------------------------------------------------------------------------|
+## | buildloc | Description                                                                                       |
+## |----------+---------------------------------------------------------------------------------------------------|
+## |       -1 | User used the --nobuildloc option. Do not build locally.                                          |
+## |        0 | Neither --buildloc nor --nobuildloc was used. Follow previous run_job command                     |
+## |        1 | User used --buildloc option without any argument. Check the run_job command for -buildloc switch. |
+## |          | If it hasn't been specified, default to $PWD/buildloc                                             |
+## |        1 | User used --buildloc option with an argument. Use that to set build_dir and build locally         |
+## |----------+---------------------------------------------------------------------------------------------------|
 # }}}1
 
 ## Check if bootenv has been done
@@ -262,6 +264,7 @@ if ($opts{'ljd'}) {
 
 ## Get the command _____________________________________________________________________________________________________
 if (  (  (  $opts{'build'}
+         || $opts{'recompile'}
          || $opts{'clean'}
          )
       && ( $opts{'model'} eq "" )
@@ -310,14 +313,15 @@ if ( $opts{'ljd'} ) {
 }
 print "Model: '$opts{'model'}'\n\n" if $opts{'verbose'};
 $opts{'cmd'} =~ s/(-model)\s*\w+/$1 $opts{'model'}/;
-$opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'buildlocal'} != 1);
 
 
 ## Include/Exclude the amdmsg_config.yaml file _________________________________________________________________________
 if ($opts{'yaml'} >= 0) {
   ## Copy only if the yaml does not exist or --yaml is forced.
-  if (   ($opts{'yaml'} > 0)
-     || !(-f "amdmsg_config.yaml")
+  if (  (  ($opts{'yaml'} > 0)
+        || !(-f "amdmsg_config.yaml")
+        )
+     && ($opts{'run'})
      ) {
     print  "Copying amdmsg_config.yaml ...\n";
     &run_cmd('\cp ' . $opts{'yaml_file'} . ' amdmsg_config.yaml') unless $opts{'test'};
@@ -328,19 +332,23 @@ if ($opts{'yaml'} >= 0) {
 }
 
 ## Build locally? ______________________________________________________________________________________________________
-if (  (  ($opts{'buildlocal'} == 1)
+if (  (  ($opts{'buildloc'} == 1)
       && ($opts{'builddir'} eq "")
       )
-   || ($opts{'buildlocal'} == 0)
+   || ($opts{'buildloc'} == 0)
    ) {
-  ## Check if run_job has the -buildlocal option
-  if ($opts{'cmd'} =~ /-buildlocal\s*(\S+)/) {
-    $opts{'buildlocal'} = 1;
+  ## Check if run_job has the -buildloc option
+  if ($opts{'cmd'} =~ /-buildloc\s*(\S+)/) {
+    $opts{'buildloc'} = 1;
     $opts{'builddir'} = $1 if ($1 ne "");
-  } elsif ($opts{'buildlocal'} == 1) {
+  } elsif ($opts{'buildloc'} == 1) {
     $opts{'builddir'} = getcwd() . "/buildloc";
   }
 }
+
+$opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'builddir'} eq "");
+# Delete the BUILD_SUCCEDED file before proceeding
+system("command rm $opts{'builddir'}/build/$opts{'model'}/BUILD_SUCCEEDED 2> /dev/null");
 
 
 ## Recompile ___________________________________________________________________________________________________________
@@ -348,34 +356,51 @@ if ($opts{'recompile'}) {
   print "[ RECOMPILE ]\n";
 
   if (-f "$opts{'builddir'}/$opts{'model'}/build.log") {
-    if ($#{$opts{'recompile_files'}} >= 0) {
-      # Files to be recompiled have been provided
-      # Enclose map in [...] to return an array reference instead of a plain array
-      $opts{'recompile_files'} = [ map(basename($_, ('.h', '.cc', '.cpp', '.c')), @{$opts{'recompile_files'}}) ];
-    } else {
-      my $build_mod_time = `stat -c '%Y' $ENV{'STEM'}/build/$opts{'model'}/build.log`; chomp $build_mod_time;
+    my $regen_txl_files = 0;
+
+    if ($#{$opts{'recompile_files'}} == -1) {
+      # Files to be recompiled have not been provided
+      my $build_mod_time = `stat -c '%Y' $opts{'builddir'}/$opts{'model'}/build.log`; chomp $build_mod_time;
       if ($build_mod_time ne "") {
-        my %recompile_files;
-        foreach (`p4 opened | grep -P '\.(h|cc)#.*(add|edit)' | sed 's/#.*\$//' | command xargs p4 where`) {
-          my @i = split(' ');
-          my $file = $i[-1]; my $file_basename = basename($file, ('.h', '.cc'));
-          if (-f dirname($file) . "/" . $file_basename . ".cc") {
+        foreach my $file (`p4 opened`) {
+          next if $file !~ /add|edit/;
+
+          $file =~ s/#.*$//;
+          $file = (split(' ', `p4 where $file`))[-1];
+
+          if (-f $file) {
             my $file_mod_time = `stat -c '%Y' $file`; chomp $file_mod_time;
-            if ($file_mod_time eq "") {
-              next;
-            }
-            if (  ($file_mod_time > $build_mod_time)
-               && (  !exists($recompile_files{$file_basename})
-                  || ($file_mod_time > $recompile_files{$file_basename})
-                  )
+            # print "DEBUG: BuildTime=$build_mod_time, $file=$file_mod_time\n";
+
+            if (  ($file_mod_time ne "")
+               && ($file_mod_time > $build_mod_time)
                ) {
-              $recompile_files{$file_basename} = $file_mod_time;
+              if ($file =~ /\.txl$/) {
+                $regen_txl_files = 1;
+                next;
+              }
+              push(@{$opts{'recompile_files'}}, $file);
             }
           }
         }
-        @{$opts{'recompile_files'}} = (sort { $recompile_files{$b} <=> $recompile_files{$a} } keys %recompile_files);
       }
     }
+
+    if ($regen_txl_files) {
+      print("    auto-generating headers from txl files\n");
+      unless ($opts{'test'}) {
+        foreach my $script (grep(/(_fwd)?_h$/,
+                                 glob "$opts{'builddir'}/$opts{'model'}/generated/*/.txn_regen_cpp_transaction_*")) {
+          if (system("${script} > /dev/null") != 0) {
+            exit;
+          }
+        }
+      }
+    }
+
+    # Uniquify recompile_files by their basename
+    # Enclose map in [...] to return an array reference instead of a plain array
+    $opts{'recompile_files'} = [ uniq(map(basename($_, ('.h', '.cc', '.cpp', '.c')), grep(/\.(h|cc|cpp|c)$/, @{$opts{'recompile_files'}}))) ];
     # print Dumper(\@{$opts{'recompile_files'}});
 
     foreach (@{$opts{'recompile_files'}}) {
@@ -387,21 +412,19 @@ if ($opts{'recompile'}) {
         system "\\rm recompile.log $opts{'builddir'}/build.log 2> /dev/null";
         my $exit_code = system qq($cmd_recompile);
         $exit_code >>= 8;
-        # print "DEBUG: Recompile exited with code=$exit_code\n";
 
-        ## Exit Code = 1 : recompile ran and found some error
-        ##             2 : recompile couldn't run because it couldn't find the .cc.o.log file. FIXME: Skip and continue : /
-        if (  ($exit_code == 1)
-           && $opts{'wtf'}
-           ) {
-          exec '$PAGER recompile.log';
+        # Exit Code = 0 : No errors found
+        #             1 : recompile ran and found some error
+        #             2 : recompile couldn't run because it couldn't find the .cc.o.log file. Ignore and move on.
+        if ($exit_code == 1) {
+          system '$PAGER recompile.log' if ($opts{'wtf'});
+          # print "ERROR: Recompile failed with exit code $exit_code\n";
           exit($exit_code);
         } elsif ($exit_code > 2) {
-          print "ERROR: Recompile failed with exit code $exit_code\n";
+          # print "ERROR: Recompile failed with exit code $exit_code\n";
           exit($exit_code);
         }
-        # else: Exit Code = 0 : No errors found
-        #                   2 : File not found   ==> proceed in either case
+        # else: Exit Code = 0/2 ==> proceed in either case
       }
     }
   }
@@ -411,7 +434,7 @@ if ($opts{'recompile'}) {
 ## Build/Clean _________________________________________________________________________________________________________
 if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   print "\n[ BUILD ]\n";
-  system "\rm recompile.log build_$opts{'model'}.log 2> /dev/null";
+  system "\rm recompile.log build_$opts{'model'}.log $opts{'builddir'}/$opts{'model'}/BUILD_SUCCEEDED 2> /dev/null";
 
   my $vericom_targ = ( $opts{'vericom'} ? " -vericom" : "" );
   my $cmd_build = "";
@@ -421,7 +444,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
     $cmd_build = "build -clean_all" . ($opts{'build'} ? " && " : "");
   }
   $cmd_build .= "build -model $opts{'model'} -k $vericom_targ" if $opts{'build'};
-  $cmd_build .= " -buildloc $opts{'builddir'}" if ($opts{'buildlocal'} == 1);
+  $cmd_build .= " -buildloc $opts{'builddir'}" if ($opts{'buildloc'} == 1);
 
   ## Beautify :P
   $cmd_build =~ s/^\s*|\s*$//g;
@@ -441,7 +464,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
       if ($exit_code) {
         if ($opts{'wtf'}) {
           print "\n";
-          if ($opts{'buildlocal'}) {
+          if ($opts{'buildloc'}) {
             system "WhyTheFail -m $opts{'model'} --buildloc $opts{'builddir'}";
           } else {
             system "WhyTheFail -m $opts{'model'}";
@@ -480,7 +503,6 @@ if (  (  $opts{'build'}
 if ( $opts{'run'} ) {
   print "\n[ RUN JOB ]\n";
   ## Remove junk arguments
-  $opts{'cmd'} =~ s/-vsz_limit\s*\d+\s*//;
   $opts{'cmd'} =~ s/-batch_name\s*\S+\s*//;
   $opts{'cmd'} =~ s/-rtp_datafile\s*\S+\s*//;
   $opts{'cmd'} =~ s/-p\s+crdb\s*//g;
@@ -525,8 +547,8 @@ if ( $opts{'run'} ) {
   if (  defined($ENV{'TMUX'})
      && (length($ENV{'TMUX'}) > 0)
      ) {
-    chomp($opts{'jobname'} = `tmux display-message -p "#S:#I.#P"`);
-    $opts{'jobname'} .= "__";
+    chomp(my $tmux_info = `tmux display-message -p "#S:#I.#P"`);
+    $opts{'jobname'} = "${tmux_info}__$opts{'jobname'}";
   }
 
   ## Run the jobspec in its own directory
@@ -541,11 +563,11 @@ if ( $opts{'run'} ) {
       $i++;
       $ljd_dir = "ljd_${cid}_$i";
     }
-    $opts{'jobname'} .= "$ENV{'STEM'}__$opts{'model'}__${ljd_dir}";
+    $opts{'jobname'} .= "__$opts{'model'}__${ljd_dir}";
     $opts{'cmd'} .= " -b $opts{'jobname'} -d ${ljd_dir}";
   } elsif ($opts{'ljd'}) {
-    $opts{'jobname'} .= "$ENV{'STEM'}__$opts{'model'}";
-    $opts{'cmd'} .= " -b $ENV{'STEM'}__$opts{'model'}";
+    $opts{'jobname'} .= "__$opts{'model'}";
+    $opts{'cmd'} .= " -b $opts{'jobname'}";
   }
 
 
@@ -577,7 +599,7 @@ if ( $opts{'run'} ) {
 
   ## Include/Exclude logs
   if ($opts{'agg_dump_f'}) {
-    $opts{'cmd'} =~ s/-?-agg_dump(\s+[^\s"]+|_on)//;
+    $opts{'cmd'} =~ s/(?:-avf\s*)?-?-agg_dump(?:\s+[^\s"]+|_on)//;
   }
   if (  ($opts{'cmd'} !~ /agg_dump/)
      && $opts{'agg_dump'}
@@ -596,7 +618,7 @@ if ( $opts{'run'} ) {
     $opts{'cmd'} =~ s/(-p\s+\S+\s+)+/$& -p fsdb / if ( $opts{'cmd'} !~ /-p\s+fsdb/ );
   }
 
-  ## Disable compression of Test.log
+  ## Disable Test.log compression
   if ($opts{'cmd'} =~ /tb_l3/) {
     $opts{'cmd'} =~ s/-TestCompressedLog\s+0\s*//;
   } elsif (  !$opts{'ljd'}
@@ -607,7 +629,7 @@ if ( $opts{'run'} ) {
 
   ## Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
-  if ($opts{'buildlocal'} == 1) {
+  if ($opts{'buildloc'} == 1) {
     die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'} || $opts{'test'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
@@ -618,8 +640,6 @@ if ( $opts{'run'} ) {
   $opts{'cmd'} =~ s/\s+/ /g;
 
   ## Run the job remotely
-  $opts{'jobname'} .= getppid() . ": " . getcwd();
-
   if (!$opts{'lsf'}) {
     $opts{'cmd'} =~ s/\s*-lsf//;
     $opts{'cmd'} =~ s/\s*-submit_args\s+'[^']*'//;
