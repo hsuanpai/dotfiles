@@ -1,0 +1,39 @@
+# Aliases                                                                                                          #{{{1
+
+# Dynamic variables (Recomputed everytime path changes via preprompt or equivalent)
+dyn_vars() {
+  export ch="${ANCHOR_ch-ch}"
+  export r="${ch}/rtl"
+  export tb="${ch}/tb"
+  export tc="${ch}/tc"
+  export v="${ch}/verif"
+  export cl3="${v}/chk_l3"
+  export vcov="${v}/coverage"
+  export l3="${v}/l3"
+  export al3="${v}/l3/arch_l3"
+  export al3c="${v}/l3/arch_l3/arch_lci"
+  export al3f="${v}/l3/arch_l3/arch_l3f"
+  export al3s="${v}/l3/arch_l3/arch_slice"
+  export al3x="${v}/l3/arch_l3/arch_lxi"
+  export txn="${v}/txn"
+  export avf="${ANCHOR_avf-import/avf}"
+  export reg="${ANCHOR_aspen_regs-meta/registers}"
+  export sim="${STEM+$STEM/}sim"
+}
+dyn_vars
+
+
+# Fzf                                                                                                              #{{{1
+unset -f __fzf-p4-all-files
+__fzf-p4-all-files() {
+  FZF_CTRL_T_COMMAND='cat \
+    <(cd $ANCHOR_ch; p4 have ... 2> /dev/null | command grep -v "$ANCHOR_ch/\(syn\|verif/dft\|\)") \
+    <(cd $ANCHOR_aspen_libs; p4 have ... 2> /dev/null) \
+    <(cd $ANCHOR_aspen_regs; p4 have ... 2> /dev/null) \
+    <(cd $ANCHOR_aspen_tools; p4 have ... 2> /dev/null) \
+    <(cd $STEM; p4 opened ... 2> /dev/null | \
+      command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
+    <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) \
+    | command grep -v "/_env/" | command awk "{print \$3}" | command sed "s:$STEM/::"' \
+  fzf-file-widget | __fzf-p4-strip-common-ancestors
+}

@@ -36,7 +36,7 @@ if ($STEM != "")
   if ($GCC_HOME != "")
     let g:ale_cpp_clang_options .= " -I ${GCC_HOME}/include"
   endif
-  let g:ale_cpp_clang_options .= " -I $STEM/build/latest/generated/ch -I $STEM/build/latest/fake_c_incl"
+  let g:ale_cpp_clang_options .= " -I $STEM/build/latest/fake_c_incl"
 endif
 
 
@@ -52,3 +52,9 @@ augroup END
 "" Fat finger forgiveness
 abbrev resposne response
 abbrev Resposne Response
+
+
+"" Project-specific config
+if filereadable(expand("$PROJ_HOME/.vimrc"))
+  source $PROJ_HOME/.vimrc
+endif

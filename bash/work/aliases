@@ -149,10 +149,11 @@ alias pfs='p4w submit'
 
 unset -f pfor
 pfor() {
+  local _pp='sed -r -e "s:^//depot/[^/]*/(trunk|branches/[^/]*):$STEM:" -e "s:$PWD/::" | column -s# -o "    #" -t | column -s- -o- -t'
   if (( $# > 0 )); then
-    p4 opened "${1}" | sed -r -e "s/#.*$//" -e "s:^//depot/[^/]*/(trunk|branches/[^/]*):$STEM:" -e "s:$PWD/::"
+    eval "p4 opened \"${1}\" | $_pp"
   else
-    p4 opened | sed -r -e "s/#.*$//" -e "s:^//depot/[^/]*/(trunk|branches/[^/]*):$STEM:" -e "s:$PWD/::"
+    eval "p4 opened | $_pp"
   fi
 }
 
@@ -179,9 +180,11 @@ pfu() {                                                                         
 
   if [[ $ret != 0 ]]; then return; fi
 
+  local _fg_green=$(tput setaf 2)
+  echo "${_fg_green}[Generating tags...]${_reset}"
   ~kshenoy/bin/gentags --create
-  sosa
-  [[ -f ~/.fzf.bash ]] && . ~/.fzf.bash
+
+  __wa_setup
 }
 
 pful() {
@@ -279,22 +282,17 @@ make_wa_vars
 # However, if we're in a non-CH repository like VH then it'll not work.
 # Hence, I've created explicit variables by basing them off ch which in turn is set based on the value of ANCHOR_ch
 dyn_vars() {                                                                                                      # {{{2
-  export ch="${ANCHOR_ch-${STEM+$STEM/}ch}"
-  export reg="${ch}/../meta/registers"
+  export ch="${ANCHOR_ch-ch}"
   export r="${ch}/rtl"
   export tb="${ch}/tb"
   export tc="${ch}/tc"
   export v="${ch}/verif"
-  export al3="${v}/l3/arch_l3"
-  export al3c="${v}/l3/arch_l3/arch_lci"
-  export al3f="${v}/l3/arch_l3/arch_l3f"
-  export al3s="${v}/l3/arch_l3/arch_slice"
-  export al3x="${v}/l3/arch_l3/arch_lxi"
   export cl3="${v}/chk_l3"
-  export clk="${v}/chk_lock"
-  export txn="${v}/txn"
   export vcov="${v}/coverage"
-  export avf="${ANCHOR_avf-${STEM+$STEM/}import/avf}"
+  export l3="${v}/l3"
+  export txn="${v}/txn"
+  export avf="${ANCHOR_avf-import/avf}"
+  export reg="${ANCHOR_aspen_regs-meta/registers}"
   export sim="${STEM+$STEM/}sim"
 }
 dyn_vars
@@ -336,18 +334,13 @@ mkwa() {                                                                        
   # echo $_temp
 
   case ${_proj} in
-    as) _proj="aspen"
-    ;;&
-    ah) _proj="aspen_highlands"
-    ;;&
-    br) _proj="breckenridge"
-    ;;&
-    cb)
-    ;;&
-    vh) _proj="valhalla"
-    ;;&
-    zn) _proj="zen"
-    ;;&
+    as) _proj="aspen" ;;&
+    ah) _proj="aspen_highlands" ;;&
+    br) _proj="breckenridge" ;;&
+    cb) ;;&
+    nv) _proj="nv21_el3";;
+    vh) _proj="valhalla" ;;&
+    zn) _proj="zen" ;;&
     *)
       if [[ -z "${_proj}" ]]; then
         echo -e "${_fg_red}ERROR${_reset}: Project not specified\n"; _help
@@ -369,22 +362,12 @@ mkwa() {                                                                        
   export TMUX=$_env_tmux
   export TMUX_PANE=$_env_tmux_pane
 
-  if [[ -z "$STEM" ]]; then
-    return 1
-  fi
+  if [[ -z "$STEM" ]]; then return; fi
 
   p4 have | awk {'print $3'} >| .filelist
 
-  # Start an emacs daemon
-  # echo "${_fg_green}[Starting emacs daemon...]${_reset}"
-  # ~kshenoy/bin/emacs_daemon -s &> /dev/null &
-
-  # Source aliases...
-  echo "${_fg_green}[Sourcing aliases...]${_reset}"
-  [[ -f ~/.dotfiles/aliases ]] && . ~/.dotfiles/aliases
-
-  # Set project root for emacs-projectile
-  # command cp $as0ks/projectile $STEM/.projectile
+  # To do misc stuff like sourcing aliases etc.
+  __wa_setup
 
   # Create tags
   echo "${_fg_green}[Generating tags...]${_reset}"
@@ -430,9 +413,6 @@ lenv() {                                                                        
   fi
   echo "loadenv into ${_workarea}"
 
-  # Start emacs daemon if one isn't present
-  # [[ -n "${_workarea}" ]] && ~kshenoy/bin/emacs_daemon -s ${workarea//\//_} &> /dev/null &
-
   command pushd "${_workarea}" > /dev/null
   . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && loadenv
   local ret=$?
@@ -441,14 +421,25 @@ lenv() {                                                                        
   export TMUX=$_env_tmux
   export TMUX_PANE=$_env_tmux_pane
 
-  if [[ $ret != 0 ]]; then return; fi
+  if [[ $ret != 0 ]] || [[ -z "$STEM" ]]; then return; fi
+
+  local _new_wd=${_old_pwd/*${STEM//\//_}/$STEM}
+  [[ -d "$_new_wd" ]] && command pushd "${_new_wd}" > /dev/null
+
+  __wa_setup
+}
+
+unset -f __wa_setup
+__wa_setup() {
+  [[ -n "$STEM" ]] && export PROJ_HOME=${STEM%$(whoami)*}$(whoami)
 
   # Source aliases etc.
   sosa; sosf
   [[ -f ~/.fzf.bash ]] && . ~/.fzf.bash
+  [[ -f $PROJ_HOME/.bashrc ]] && . $PROJ_HOME/.bashrc
 
-  local _new_wd=${_old_pwd/*${STEM//\//_}/$STEM}
-  [[ -d "$_new_wd" ]] && command pushd "${_new_wd}" > /dev/null
+  # Start emacs daemon if one isn't present
+  # [[ -n "${_workarea}" ]] && ~kshenoy/bin/emacs_daemon -s ${workarea//\//_} &> /dev/null &
 }
 
 unset -f pfrem

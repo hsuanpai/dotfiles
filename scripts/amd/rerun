@@ -96,38 +96,39 @@ $Data::Dumper::Sortkeys = 1;
 ##======================================================================================================================
 ## Default values for options _____________________________________________________________________________________ {{{2
 my %opts = (
-  'add'              =>  "",
-  'agg_dump_f'       =>  0,
-  'agg_dump'         =>  1,
-  'agg_dump_file'    =>  "",
-  'build'            =>  0,
-  'builddir'         =>  "",
-  'buildloc'         =>  0,
-  'clean'            =>  0,
-  'clean_all'        =>  0,
-  'cmd'              =>  "",
-  'cov'              =>  0,
-  'delete'           =>  "",
-  'file'             =>  "tb_sim",
-  'fsdb'             =>  -1,
-  'jobname'          =>  getppid() . "__" . getcwd(),
-  'lsf'              =>  1,
-  'lsf_queue'        =>  "high",
-  'model'            =>  "",
-  'recompile'        =>  0,
-  'recompile_files'  =>  [],
-  'remote'           =>  0,
-  'run'              =>  1,
-  'seed'             =>  213471118,
-  'seed_f'           =>  0,
-  'spin'             =>  0,
-  'tags'             =>  1,
-  'test'             =>  0,
-  'verbose'          =>  0,
-  'vericom'          =>  1,
-  'wtf'              =>  1,
-  'yaml'             =>  0,
-  'yaml_file'        =>  "~/amdmsg_config.yaml",
+  'add'                   => "",
+  'agg_dump_f'            => 0,
+  'agg_dump'              => 1,
+  'agg_dump_file'         => "",
+  'build'                 => 0,
+  'builddir'              => "",
+  'buildloc'              => 0,
+  'clean'                 => 0,
+  'clean_all'             => 0,
+  'cmd'                   => "",
+  'cov'                   => 0,
+  'delete'                => "",
+  'avoid_compressed_logs' => 1,
+  'file'                  => "tb_sim",
+  'fsdb'                  => -1,
+  'jobname'               => getppid() . "__" . getcwd(),
+  'lsf'                   => 1,
+  'lsf_queue'             => "high",
+  'model'                 => "",
+  'recompile'             => 0,
+  'recompile_files'       => [],
+  'remote'                => 0,
+  'run'                   => 1,
+  'seed'                  => 213471118,
+  'seed_f'                => 0,
+  'spin'                  => 0,
+  'tags'                  => 1,
+  'test'                  => 0,
+  'verbose'               => 0,
+  'vericom'               => 1,
+  'wtf'                   => 1,
+  'yaml'                  => 0,
+  'yaml_file'             => "~/amdmsg_config.yaml",
 );
 $opts{'file'} = "sim.out"    unless ( -e $opts{'file'} );
 $opts{'file'} = "summary.rj" unless ( -e $opts{'file'} );
@@ -254,7 +255,20 @@ if ( $opts{'cmd'} eq "" ) {
     $opts{'yaml'} = -1;
     ## Force build without --vericom option
     $opts{'vericom'} = 0;
+    $opts{'avoid_compressed_logs'} = 0;
   }
+}
+
+## Repository specific settings
+my $trunk = (split(/ /, `p4 where \$STEM/configuration_id`))[0];
+# print $trunk, "\n";
+if ($trunk =~ /navi21_el3/) {
+  $opts{'agg_dump_f'} = 1;
+  $opts{'agg_dump'} = 0;
+  $opts{'avoid_compressed_logs'} = 0;
+} elsif ( $trunk =~ /aspen_highlands/ ) {
+  $opts{'agg_dump_f'} = 1;
+  $opts{'agg_dump'} = 0;
 }
 
 if ($opts{'ljd'}) {
@@ -313,6 +327,10 @@ if ( $opts{'ljd'} ) {
 }
 print "Model: '$opts{'model'}'\n\n" if $opts{'verbose'};
 $opts{'cmd'} =~ s/(-model)\s*\w+/$1 $opts{'model'}/;
+
+if ($opts{'model'} =~ "tb_l3") {
+  $opts{'avoid_compressed_logs'} = 0;
+}
 
 
 ## Include/Exclude the amdmsg_config.yaml file _________________________________________________________________________
@@ -619,11 +637,9 @@ if ( $opts{'run'} ) {
   }
 
   ## Disable Test.log compression
-  if ($opts{'cmd'} =~ /tb_l3/) {
+  if (!$opts{'avoid_compressed_logs'}) {
     $opts{'cmd'} =~ s/-TestCompressedLog\s+0\s*//;
-  } elsif (  !$opts{'ljd'}
-          && ($opts{'cmd'} !~ /TestCompressedLog/)
-          ) {
+  } elsif ($opts{'cmd'} !~ /TestCompressedLog/) {
     $opts{'cmd'} .= ' -avf "-TestCompressedLog 0"';
   }
 
