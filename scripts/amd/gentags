@@ -1,39 +1,25 @@
-#!/tool/pandora64/bin/bash
+#!/usr/bin/env bash
 
-#echo "CMD: '$0 $@'"
 # NOTE: true and false are not bools but simple executables in /bin which return true and false respectively
 
 ## Default variables                                                                                                {{{1
-_workarea="${REPO_PATH:+$REPO_PATH}"
-_create_tags=false
-_create_cscope=false
-_update_tags=false
-_filelist=${_workarea}/.tag_filelist
-_tagfile=${_workarea}/.tags
-_tagdirs=()
-for i in \
-  ${_workarea}/libs/verif \
-  ${_workarea}/ch         \
-  ; do
-  if [[ -e ${i} ]] && [[ -d ${i} ]]; then
-    _tagdirs=(${_tagdirs[@]} "$i")
-  fi
-done
-
+_workarea=""
+_out_dir=""
+_filelist=/tmp/tagfiles
 
 ## Helper functions                                                                                                 {{{1
 _print_help_() {                                                                                                  # {{{2
+  echo "Automatically generate tags and cscope database for all C/C++ related files located in the workarea and the latest build"
+  echo
   echo "Usage:"
-  echo "  `basename $0` [OPTIONS]"
+  echo "  `basename $0` [OPTIONS] [files...]"
   echo
   echo "Options:"
   echo "  -h                     Print this help"
-  echo "  -c, --create           Create both ctags and cscope database"
-  echo "      --create-tags      Create ctags"
-  echo "      --create-cscope    Create cscope database"
-  echo "  -u, --update           Update both ctags and cscope database"
-  echo "      --update-tags      Update ctags"
-  echo "      --update-cscope    Update cscope database"
+  echo "  -d                     Generate tags for files in the specified directory. Can be specified multiple times"
+  echo "  -l                     Generate tags for files listed in the specified filelist. Can be specified multiple times"
+  echo "  -o                     Generate tags/cscope db to the specified directory."
+  echo "                         Defaults to \$REPO_PATH or, if -w was given, the specified work-area"
   echo "  -w                     Use the specified dir as work-area. If this is not specified, defaults to \$REPO_PATH"
 }
 # }}}2
@@ -52,34 +38,23 @@ done
 
 
 while (( $# > 0 )); do
-  #echo "DEBUG: Arg:'$1'"
   case $1 in
-    --create|-c)
-      _create_tags=true
-      _create_cscope=true
+    -d) shift;
+      if [[ -d "$1" ]]; then
+        find "$1" -type f -type f \( -iname "*.h" -o -iname '*.hh' -o -iname '*.hpp' -o -iname "*.c" -o -iname "*.cc" -o -iname "*.cpp" \) >| $_filelist
+      fi
       ;;
 
-    --create-tags)
-      _create_tags=true
+    -l) shift;
+      [[ -f "$1" ]] && command grep '\.\(h\|hh|hpp|c|cc|cpp\)$' "$1" >> $_filelist
       ;;
 
-    --create-cscope)
-      _create_cscope=true
+    -o) shift;
+      _out_dir="$1"
       ;;
 
-    -w)
-      shift;
-      _workarea=$1
-      ;;
-
-    --update|-u)
-      _update_tags=true
-      _create_cscope=true
-      _create=""
-      ;;
-
-    --update-tags)
-      _update_tags=true
+    -w) shift;
+      [[ -d "$1" ]] && _workarea="$1"
       ;;
 
     -*)
@@ -89,50 +64,42 @@ while (( $# > 0 )); do
       ;;
 
     *)
-      _tagdirs=(${_tagdirs[@]} "$1")
+      echo "$1" >> $_filelist
       ;;
   esac
   shift
 done
-#echo $@
-#cat $_filelist
-#echo "${_tagdirs[@]}"
 
-if [[ -z $_workarea ]]; then
-  echo "Work area is not specified. REPO_PATH is also not set!"
-  exit 1
-elif [[ $_workarea != $REPO_PATH ]]; then
+if [[ -z "$_workarea" ]]; then
+  if [[ -z "$REPO_PATH" ]]; then
+    echo "Work area is not specified. REPO_PATH is also not set!"
+    exit 1
+  fi
+  _workarea="$REPO_PATH"
+fi
+
+if [[ "$_workarea" != "$REPO_PATH" ]]; then
   #echo "Booting into workarea '$_workarea'"
-  . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv
+  . /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && command loadenv
 fi
 
-export CSCOPE_DB=${_workarea}/.cscope.out
-
-## Create _filelist                                                                                                 {{{1
-if [[ $_update_tags == true ]] && [[ -f $_tagfile ]]; then
-  if [[ ! -s $_filelist ]]; then
-    # grep for depot as it'll get rid of the No opened files message
-    p4 opened 2> /dev/null | sed 's/#.*$//' | command xargs p4 where | cut -d " " -f3 >| $_filelist
-  fi
-
-  # Remove older tags
-  if [[ -f $_tagfile ]]; then
-    while read; do
-      sed -i "\:${REPLY}:d" $_tagfile
-    done < $_filelist
-  fi
-
-elif [[ ! -s $_filelist ]] && (( ${#_tagdirs[@]} > 0 )); then
-  # Create list of files to create tags for
-  find ${_tagdirs[@]} -type f -wholename '*unittest*' -prune -o -type f \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) >| $_filelist
-  #echo $_tagfile
-  # Follow symlinks for generate files
-  #find ${_tagdirs[@]} -type l -wholename '*unittest*' -prune -o -type l \( -iname "*.h" -or -iname "*.cc" -or -iname "*.c" -or -iname "*.cpp" \) -exec readlink '{}' \; >> $_filelist
+if [[ -z "$_out_dir" ]]; then
+  _out_dir="$_workarea"
 fi
 
+# If file is empty, then try to make a best-case guess of what might be useful
 if [[ ! -s $_filelist ]]; then
-  exit 1
+  command grep '\.\(h\|hh|hpp|c|cc|cpp\)$' --no-filename \
+    <(cd $STEM; p4 have ... 2> /dev/null | awk {'print $3'}) \
+    <(cd $ANCHOR_avf; p4 have ... 2> /dev/null | awk '{print $3}') \
+    <(find $STEM/build/latest/generated -type f 2> /dev/null) >| $_filelist
 fi
+
+# If file is still empty, then something's wrong. We have nothing left to do here
+[[ ! -s $_filelist ]] && exit 1
+
+
+command sort -u $_filelist > /tmp/$$; command mv /tmp/$$ $_filelist
 
 
 ## Generate tags                                                                                                    {{{1
@@ -171,32 +138,23 @@ fi
 #        v | variable definitions
 #        x | external and forward variable declarations [off]
 # ---------+------------------------------------------------------------------------------------------------------------
-# }}}1
-
+# }}}2
 
 (
-if $_create_tags; then
-  # :CtrlPTags gets really slow with a large tag file containing lots of info so I'm restricting to what's strictly necessary
-  # NOTE: Most options in --fields and --c++-kinds are enabled/disabled by default and have not been specified.
-  #       This is the full list of options: --fields=+aS-fiKklmnstzrRZEx --c++-kinds=+cdefgmstv-lnpuxzLN
-  ~kshenoy/bin/ctags ${_update_tags:+-a} --languages=c,c++ --fields=+a-fkst --c++-kinds=-nu -L $_filelist -f $_tagfile 2> /dev/null &
-  ~kshenoy/bin/gtags -f $_filelist 2> /dev/null &
-fi
+# :CtrlPTags gets really slow with a large tag file containing lots of info so I'm restricting to what's strictly necessary
+# NOTE: Most options in --fields and --c++-kinds are enabled/disabled by default and have not been specified.
+#       This is the full list of options: --fields=+aS-fiKklmnstzrRZEx --c++-kinds=+cdefgmstv-lnpuxzLN
+~kshenoy/bin/ctags --languages=c,c++ --fields=+a-fkst --c++-kinds=-nu -L $_filelist -f ${_out_dir}/.tags 2> /dev/null &
 
 # Clean-up the tags file by deleting fold markers etc.
-if [[ -f $_tagfile ]]; then
-  sed -i 's:\s*\\/\\/\s*{{{[0-9]*\$::' $_tagfile
+if [[ -f ${_out_dir}/.tags ]]; then
+  sed -i 's:\s*\\/\\/\s*{{{[0-9]*\$::' ${_out_dir}/.tags
 fi
 ) &
-
+# }}}1
 
 ## Generate cscope database                                                                                         {{{1
-(
-if $_create_cscope; then
-  #echo $CSCOPE_DB
-  cscope -bqk -i $_filelist -f $CSCOPE_DB 2> /dev/null
-fi
-) &
+cscope -bqk -i $_filelist -f ${_out_dir}/.cscope.out 2> /dev/null &
 # }}}1
 
 wait
