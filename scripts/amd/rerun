@@ -266,6 +266,7 @@ if ($trunk =~ /navi21_el3/) {
   $opts{'agg_dump_f'} = 1;
   $opts{'agg_dump'} = 0;
   $opts{'avoid_compressed_logs'} = 0;
+  $opts{'yaml_file'} = "$ENV{'PROJ_HOME'}/amdmsg_config.yaml" if defined($ENV{'PROJ_HOME'})
 } elsif ( $trunk =~ /aspen_highlands/ ) {
   $opts{'agg_dump_f'} = 1;
   $opts{'agg_dump'} = 0;
@@ -492,7 +493,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
       } else {
         ## Generate tags and cscope.out if build succeeds
         system("tail -n3 build_$opts{'model'}.log");
-        system("~kshenoy/bin/gentags --create $ENV{'STEM'}/build/$opts{'model'} &") if $opts{'tags'};
+        system("~kshenoy/bin/gentags &") if $opts{'tags'};
       }
     }
   }

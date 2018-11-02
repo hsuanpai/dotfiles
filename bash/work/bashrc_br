@@ -1,5 +1,3 @@
-# Aliases                                                                                                          #{{{1
-
 # Dynamic variables (Recomputed everytime path changes via preprompt or equivalent)
 dyn_vars() {
   export ch="${ANCHOR_ch-ch}"
@@ -23,17 +21,17 @@ dyn_vars() {
 dyn_vars
 
 
-# Fzf                                                                                                              #{{{1
-unset -f __fzf-p4-all-files
-__fzf-p4-all-files() {
-  FZF_CTRL_T_COMMAND='cat \
-    <(cd $ANCHOR_ch; p4 have ... 2> /dev/null | command grep -v "$ANCHOR_ch/\(syn\|verif/dft\|\)") \
+# Generate a list of relevant files
+pfls() {
+  [[ -z $STEM ]] && return
+
+  cat \
+    <(cd $ANCHOR_ch; p4 have ... 2> /dev/null | command grep -v "$ANCHOR_ch/\(syn\|verif/dft\)") \
     <(cd $ANCHOR_aspen_libs; p4 have ... 2> /dev/null) \
     <(cd $ANCHOR_aspen_regs; p4 have ... 2> /dev/null) \
     <(cd $ANCHOR_aspen_tools; p4 have ... 2> /dev/null) \
     <(cd $STEM; p4 opened ... 2> /dev/null | \
       command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
     <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) \
-    | command grep -v "/_env/" | command awk "{print \$3}" | command sed "s:$STEM/::"' \
-  fzf-file-widget | __fzf-p4-strip-common-ancestors
+    | command grep -v "/_env/" | command awk "{print \$3}" >| $STEM/.filelist
 }

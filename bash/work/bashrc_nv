@@ -1,4 +1,4 @@
-# Aliases                                                                                                          #{{{1
+# Aliases
 alias rg=release_gate
 
 # Dynamic variables (Recomputed everytime path changes via preprompt or equivalent)
@@ -12,14 +12,15 @@ dyn_vars() {
 dyn_vars
 
 
-# Fzf                                                                                                              #{{{1
-unset -f __fzf-p4-all-files
-__fzf-p4-all-files() {
-  FZF_CTRL_T_COMMAND='cat \
-    <(cd $ANCHOR_nv21_el3; p4 have ... 2> /dev/null | \
+# Generate a list of relevant files
+pfls() {
+  [[ -z $STEM ]] && return
+
+  cat \
+    <(command cd $ANCHOR_nv21_el3; p4 have ... 2> /dev/null |
       command grep -v "$ANCHOR_nv21_el3/\(tools\|verif/\(cdc\|dft\)\|meta/\(drop2cad\|ipxact\|upf\)\)") \
-    <(cd $STEM; p4 opened 2> /dev/null | command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
-    <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) \
-    | command grep -v "/_env/\|clang-format" | command awk "{print \$3}" | command sed "s:$STEM/::"' \
-  fzf-file-widget | __fzf-p4-strip-common-ancestors
+    <(command cd $STEM; p4 opened 2> /dev/null | command grep add | command sed "s/#.*//" |
+        command xargs -I{} -n1 p4 where {}) \
+    <(command cd $ANCHOR_avf; p4 have ... 2> /dev/null) \
+    | command grep -v "/_env/\|clang-format" | command awk "{print \$3}" >| $STEM/.filelist
 }

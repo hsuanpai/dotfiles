@@ -17,12 +17,11 @@ fi
 
 
 #=======================================================================================================================
-# EDITOR                                                                                                            {{{1
+# EDITOR                                                                                                           {{{1
 #=======================================================================================================================
 alias v="gvim_func -c 'set columns=319' ${STEM:+--servername $STEM}"
 alias vc='v --remote-silent'
 
-unset -f vlog
 vlog() {
   local _comp=$(command grep -o 'error.*component=\S\+' sim.out | sed 's/.*=//')
   if [[ $_comp == "sim.out" ]] || [[ ${_comp}.log == *AggL3.log ]] || [[ ${_comp}.log == *L3Seq.log ]]; then
@@ -46,8 +45,6 @@ alias e="emacs_func ${STEM+--socket-name=${STEM//\//_}}"
 # alias as_bsub="lsf_bsub -Is -R 'rusage[mem=2000]' -q high -P aspen-ver"
 
 # Building and Compiling
-alias sbi='. /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash'
-unset -f mkv
 mkv() { mkverdi -novericom $(command grep -Po '\-model\s*\S+' sim.out) -rc ~/novas.rc -guiConf ~/novas.conf -tkName "verdi_$(tmux display-message -p '#S:#I.#P')" "$@" & }
 alias findFirstError='findFirstError --tkName "verdi_$(tmux display-message -p "#S:#I.#P")"'
 alias cid='cat ${REPO_PATH+$REPO_PATH/}configuration_id'
@@ -113,7 +110,7 @@ alias tmxvnc='tmux new-window -d -n "XVNC" "x11vnc"'
 
 
 #=======================================================================================================================
-# PERFORCE                                                                                                          {{{1
+# PERFORCE                                                                                                         {{{1
 #=======================================================================================================================
 alias pf='p4w'
 alias pfa='p4 add'
@@ -138,8 +135,7 @@ pftop() {
 }
 alias pfs='p4w submit'
 
-# unset -f pfop
-# pfop() {                                                                                                        # {{{2
+# pfop() {                                                                                                         #{{{2
 #   while read; do
 #     local d=$(sed -e 's/#.*$//' <<< $REPLY);
 #     local f=$(p4 where $d | cut -d " " -f3);
@@ -147,8 +143,7 @@ alias pfs='p4w submit'
 #   done < <(p4 opened)
 # }
 
-unset -f pfor
-pfor() {
+pfor() {                                                                                                           #{{{2
   local _pp='sed -r -e "s:^//depot/[^/]*/(trunk|branches/[^/]*):$STEM:" -e "s:$PWD/::" | column -s# -o "    #" -t | column -s- -o- -t'
   if (( $# > 0 )); then
     eval "p4 opened \"${1}\" | $_pp"
@@ -157,7 +152,7 @@ pfor() {
   fi
 }
 
-pfu() {                                                                                                           # {{{2
+pfu() {                                                                                                            #{{{2
   # Save ENV variables
   local _env_tmux=$TMUX
   local _env_tmux_pane=$TMUX_PANE
@@ -179,15 +174,17 @@ pfu() {                                                                         
   export TMUX_PANE=$_env_tmux_pane
 
   if [[ $ret != 0 ]]; then return; fi
+  __wa_setup
 
+  pfls &
+
+  # Create tags
   local _fg_green=$(tput setaf 2)
   echo "${_fg_green}[Generating tags...]${_reset}"
-  ~kshenoy/bin/gentags --create
-
-  __wa_setup
+  ~kshenoy/bin/gentags &
 }
 
-pful() {
+pful() {                                                                                                           #{{{2
   local _changelist="latest"
 
   # If a valid username is provided then grab latest changelist by that user
@@ -199,29 +196,19 @@ pful() {
   pfu "@$_changelist"
 }
 
-# Generate a list of files
-unset -f pf_list
-pf_list() {                                                                                                       # {{{2
-  if [[ "$1" == "--check" ]] && [[ -f ${STEM:+$STEM/}.filelist ]]; then
-    return 0
-  fi
-
+# Generate a list of relevant files
+pfls() {                                                                                                           #{{{2
   [[ -z $STEM ]] && return 1
-  cat <(p4 have) <(cd $STEM/import/avf; p4 have ...) | awk {'print $3'} >| $STEM/.filelist
+  cat <(cd $STEM; p4 have ... 2> /dev/null) <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) | awk {'print $3'} >| $STEM/.filelist
 }
 
 # Find a file
-unset -f pff
-pff() {                                                                                                           # {{{2
-  pf_list --check
+pff() {                                                                                                            #{{{2
   ag --nocolor --no-numbers "$@" ${STEM:+$STEM/}.filelist
 }
 
 # Grep from the list of files in the repo
-unset -f pfg
-pfg() {                                                                                                           # {{{2
-  pf_list --check
-
+pfg() {                                                                                                            #{{{2
   local _filter='""'
   if [[ "$1" == "-g" ]]; then
     _filter="$2"
@@ -244,11 +231,10 @@ alias pfgtsbs="pfg -g '\.sbs$'"
 
 
 #=======================================================================================================================
-# WORKAREA                                                                                                          {{{1
+# WORKAREA                                                                                                         {{{1
 #=======================================================================================================================
 # Declaring these as environment variables instead of regular ones allows access from within vim
-unset -f make_wa_vars
-make_wa_vars() {                                                                                                  # {{{2
+make_wa_vars() {                                                                                                   #{{{2
   local _proj _ch _wa _scr
   for _proj in as ah br nv; do
     case $_proj in
@@ -281,7 +267,7 @@ make_wa_vars
 # And as long as we're in a CH workarea, all the below variables should work the same
 # However, if we're in a non-CH repository like VH then it'll not work.
 # Hence, I've created explicit variables by basing them off ch which in turn is set based on the value of ANCHOR_ch
-dyn_vars() {                                                                                                      # {{{2
+dyn_vars() {                                                                                                       #{{{2
   export ch="${ANCHOR_ch-ch}"
   export r="${ch}/rtl"
   export tb="${ch}/tb"
@@ -298,8 +284,7 @@ dyn_vars() {                                                                    
 dyn_vars
 
 
-unset -f mkwa
-mkwa() {                                                                                                          # {{{2
+mkwa() {                                                                                                           #{{{2
   _mkwa_help() {
     echo 'SYNTAX:'
     echo '  mkwa PROJ[/BRANCH=PROJ_trunk][@CHANGELIST=latest]'
@@ -362,21 +347,19 @@ mkwa() {                                                                        
   export TMUX=$_env_tmux
   export TMUX_PANE=$_env_tmux_pane
 
-  if [[ -z "$STEM" ]]; then return; fi
-
-  p4 have | awk {'print $3'} >| .filelist
-
-  # To do misc stuff like sourcing aliases etc.
+  [[ -z "$STEM" ]] && return
   __wa_setup
 
+  pfls &
+
   # Create tags
+  local _fg_green=$(tput setaf 2)
   echo "${_fg_green}[Generating tags...]${_reset}"
-  ~kshenoy/bin/gentags --create
+  ~kshenoy/bin/gentags &
 }
 
 
-unset -f wa_list
-wa_list() {                                                                                                       # {{{2
+wa_list() {                                                                                                        #{{{2
   local _proj _ch _wa _path
   for _ch in {0..1}; do
     for _proj in as ah br; do
@@ -397,8 +380,8 @@ wa_list() {                                                                     
 }
 
 
-unset -f lenv
-lenv() {                                                                                                          # {{{2
+alias benv='. /proj/verif_release_ro/cbwa_initscript/nodisk_current/cbwa_init.bash && bootenv && __wa_setup'
+lenv() {                                                                                                           #{{{2
   # Save ENV variables
   local _env_tmux=$TMUX
   local _env_tmux_pane=$TMUX_PANE
@@ -429,21 +412,20 @@ lenv() {                                                                        
   __wa_setup
 }
 
-unset -f __wa_setup
-__wa_setup() {
+__wa_setup() {                                                                                                     #{{{2
   [[ -n "$STEM" ]] && export PROJ_HOME=${STEM%$(whoami)*}$(whoami)
 
   # Source aliases etc.
   sosa; sosf
-  [[ -f ~/.fzf.bash ]] && . ~/.fzf.bash
-  [[ -f $PROJ_HOME/.bashrc ]] && . $PROJ_HOME/.bashrc
+  for i in $PROJ_HOME/.bashrc; do
+    [[ -f ${i} ]] && . ${i} && echo "Sourced ${i}"
+  done
 
   # Start emacs daemon if one isn't present
   # [[ -n "${_workarea}" ]] && ~kshenoy/bin/emacs_daemon -s ${workarea//\//_} &> /dev/null &
 }
 
-unset -f pfrem
-pfrem() {                                                                                                         # {{{2
+pfrem() {                                                                                                          #{{{2
   local _workarea=$(readlink -f ${1:-${REPO_PATH:-$PWD}})
   if [[ $_workarea != $REPO_PATH ]]; then
     command cd $_workarea
@@ -469,8 +451,7 @@ pfrem() {                                                                       
   ~kshenoy/bin/emacs_daemon -k ${_workarea//\//_}
 }
 
-unset -f trapbug_rm
-trapbug_rm() {                                                                                                    # {{{2
+trapbug_rm() {                                                                                                     #{{{2
 ssh atlvsub01 xargs /home/ainfra/bin/rm_defunct_bug_data --bug_data_path /proj/aspen_bug_data/ASPEN --bug_dirs << BUGS
 "$@"
 BUGS
@@ -489,12 +470,10 @@ clangpp() {
     -L${BOOST_HOME}/lib -I${BOOST_HOME}/include -Wl,-rpath ${BOOST_HOME}/lib "$@"
 }
 
-unset -f psig
 psig() {
   perl -lne 'if(/^\s+-+$/../^\s*$/){if(/^\s+-+$/){$c=0;}elsif(/^\s*$/){print "  ($c) $s";}else{$c++;}}else{s/^\s+|\s+$//g;$s=$_}' $1
 }
 
-unset -f rgsig
 rgsig() {
   for i in $(command grep FAIL ${REPO_PATH+$REPO_PATH/}release_gate_tmp/release_gate.log | colm -1); do
     local _sim=${i##*release_gate_tmp/}
@@ -504,7 +483,6 @@ rgsig() {
   done
 }
 
-unset -f rgww
 rgww() {
   for i in $(command grep FAIL ${REPO_PATH+$REPO_PATH/}release_gate_tmp/release_gate.log | colm -1); do
     local _sim=${i##*release_gate_tmp/}
@@ -514,7 +492,6 @@ rgww() {
   done
 }
 
-unset -f plastlock
 plastlock() {
   for i in $*; do
     echo -e "\n$i:"
@@ -522,7 +499,6 @@ plastlock() {
   done
 }
 
-unset -f vsig
 vsig() {
   file_lnum=$(command grep -Po -m1 '(?<=source\=)[^:]+:\d+' summary.rj)
   file=${file_lnum%:*}
@@ -534,7 +510,6 @@ vsig() {
   vc +$lnum $file
 }
 
-unset -f tel
 tel() {
   while (( $# > 0 )); do
     getent passwd $1 | \
@@ -546,14 +521,12 @@ tel() {
   done
 }
 
-unset -f dotty
 dotty() {
   for i in $*; do
     dot -Tgif -o `basename $i .gv`.gif $i
   done
 }
 
-unset -f but
 but() {
   model=unittest_${1#unittest_}
   shift;
@@ -574,7 +547,6 @@ but() {
   fi
 }
 
-unset -f wtff
 wtff() {
   model=`basename ${1%_rg.build.log}`
   wtf -m $model
