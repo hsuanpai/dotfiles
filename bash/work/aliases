@@ -102,7 +102,11 @@ busw() { watch --no-title -n 60 "bucket -s $@"; }
 alias toclippy="sed -e 's/$/
 /' | tee ~/clippy.txt"
 
-alias xt='xterm -geometry 318x66+1920+25 & wmctrl -i -r $! -b add,maximized_vert'
+# LANG=C is the default setting at the system level. That causes xterm to not display unicode characters correctly.
+# Setting LANG=en_US.UTF-8 seems to get rid of the font rendering issues but causes a bunch of other side-effects which
+# are hard to figure out and harder to work-around. So I'm keeping LANG=C to avoid them (the devil you know...)
+# To get xterm to render the font correctly I force the encoding while starting it
+alias xt='xterm -en en_US.UTF-8 -geometry 318x66+1920+25 & wmctrl -i -r $! -b add,maximized_vert'
 # alias xtr='echo "resize -s 62 273"; resize -s 62 273'
 alias xtr='wmctrl -i -r $(xdotool getactivewindow) -e 0,1920,25,1918,1144; wmctrl -i -r $(xdotool getactivewindow) -b add,maximized_vert'
 alias tmxvnc='tmux new-window -d -n "XVNC" "x11vnc"'
@@ -466,7 +470,7 @@ gpp() {
     -L${BOOST_HOME}/lib -I${BOOST_HOME}/include -Wl,-rpath ${BOOST_HOME}/lib "$@"
 }
 clangpp() {
-  clang++ -Wall -Wextra -std=c++14 -L${GCC_HOME}/lib \
+  clang++ -Wall -Wextra -std=c++14 -L${LLVM_HOME}/lib \
     -L${BOOST_HOME}/lib -I${BOOST_HOME}/include -Wl,-rpath ${BOOST_HOME}/lib "$@"
 }
 
