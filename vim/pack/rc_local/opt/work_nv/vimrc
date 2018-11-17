@@ -9,7 +9,7 @@ let g:ctrlp_user_command.types.3 = [
       \ 'P4CONFIG',
       \ 'cd %s; cat ' .
       \   '<(cd $ANCHOR_nv21_el3; p4 have ... 2> /dev/null | ' .
-      \     'command grep -v "$ANCHOR_nv21_el3/\(tools\|verif/\(cdc\|dft\)\|meta/\(drop2cad\|ipxact\|upf\)\)") ' .
+      \     'command grep -v "$ANCHOR_nv21_el3/\(verif/\(cdc\|dft\)\|meta/\(drop2cad\|ipxact\|upf\)\)") ' .
       \   '<(cd $STEM; p4 opened ... 2> /dev/null | ' .
       \     'command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) ' .
       \   '<(cd $ANCHOR_avf; p4 have ... 2> /dev/null) ' .

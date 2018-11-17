@@ -19,7 +19,7 @@ fi
 #=======================================================================================================================
 # EDITOR                                                                                                           {{{1
 #=======================================================================================================================
-alias v="gvim_func -c 'set columns=319' ${STEM:+--servername $STEM}"
+alias v="gvim_func ${STEM:+--servername $STEM}"
 alias vc='v --remote-silent'
 
 vlog() {
@@ -209,6 +209,9 @@ pfls() {                                                                        
 # Find a file
 pff() {                                                                                                            #{{{2
   ag --nocolor --no-numbers "$@" ${STEM:+$STEM/}.filelist
+}
+p4f() {
+  p4 have $STEM/... | ag --nocolor --no-numbers "$@"
 }
 
 # Grep from the list of files in the repo

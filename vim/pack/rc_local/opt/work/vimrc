@@ -22,7 +22,7 @@ set isfname-==
 
 if ($STEM != "")
   set path=.
-  set path+=$STEM/build/latest/generated
+  set path+=$STEM/build/latest/generated/**
   set path+=$STEM/build/latest/fake_c_incl
   set path+=$STEM/ch/**
   set path+=$STEM/import/avf/**

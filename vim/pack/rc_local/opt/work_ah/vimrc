@@ -1,7 +1,7 @@
 let g:ctrlp_user_command.types.3 = [
       \ 'P4CONFIG',
       \ 'cd %s; cat ' .
-      \   '<(cd $ANCHOR_ch; p4 have ... 2> /dev/null | command grep -v "$ANCHOR_ch/\(syn\|verif/dft\|\)") ' .
+      \   '<(cd $ANCHOR_ch; p4 have ... 2> /dev/null | command grep -v "$ANCHOR_ch/\(syn\|verif/dft\)") ' .
       \   '<(cd $ANCHOR_aspen_libs; p4 have ... 2> /dev/null) ' .
       \   '<(cd $ANCHOR_aspen_regs; p4 have ... 2> /dev/null) ' .
       \   '<(cd $ANCHOR_aspen_tools; p4 have ... 2> /dev/null) ' .

@@ -16,8 +16,9 @@ export TZ="US/Mountain"
 # module list - to look at loaded modules
 # module avail <package> - to see different versions of the package eg. `module avail emacs`
 module load hdk-6/1.1
-module load ctags/4518
 module load emacs/25.1
+# emacs has its own version of tags so loading ctags after emacs to ensure that we don't pick up emacs' ctags
+module load ctags/4518
 module load git/2.16.2
 module load the_silver_searcher/2.1.0
 module load tmux/2.7

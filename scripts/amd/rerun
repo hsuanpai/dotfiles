@@ -260,14 +260,14 @@ if ( $opts{'cmd'} eq "" ) {
 }
 
 ## Repository specific settings
-my $trunk = (split(/ /, `p4 where \$STEM/configuration_id`))[0];
-# print $trunk, "\n";
-if ($trunk =~ /navi21_el3/) {
+my $repo = (split(/ /, `p4 where \$STEM/configuration_id`))[0];
+# print $repo, "\n";
+if ($repo =~ m{^//depot/navi21_el3/}) {
   $opts{'agg_dump_f'} = 1;
   $opts{'agg_dump'} = 0;
   $opts{'avoid_compressed_logs'} = 0;
   $opts{'yaml_file'} = "$ENV{'PROJ_HOME'}/amdmsg_config.yaml" if defined($ENV{'PROJ_HOME'})
-} elsif ( $trunk =~ /aspen_highlands/ ) {
+} elsif ($repo =~ m{^//depot/aspen_highlands/}) {
   $opts{'agg_dump_f'} = 1;
   $opts{'agg_dump'} = 0;
 }
@@ -647,7 +647,7 @@ if ( $opts{'run'} ) {
   ## Use local build if --buildloc is specified
   $opts{'cmd'} =~ s/-buildloc\s*\S+\s*//;
   if ($opts{'buildloc'} == 1) {
-    die 'ERROR: buildloc directory ($opts{"builddir"}) does not exist\n' unless (-d $opts{'builddir'} || $opts{'test'});
+    die "ERROR: buildloc directory ($opts{'builddir'}) does not exist\n" unless (-d $opts{'builddir'} || $opts{'test'});
     $opts{'cmd'} .= " -buildloc $opts{'builddir'}";
   }
 

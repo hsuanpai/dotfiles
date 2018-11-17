@@ -91,6 +91,8 @@ fi
 if [[ ! -s $_filelist ]]; then
   command grep '\.\(h\|hh\|hpp\|c\|cc\|cpp\)$' --no-filename \
     <(cd $STEM; p4 have ... 2> /dev/null | awk {'print $3'}) \
+    <(cd $STEM; p4 opened ... 2> /dev/null | \
+      command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {} | awk '{print $3}') \
     <(cd $ANCHOR_avf; p4 have ... 2> /dev/null | awk '{print $3}') \
     <(find $STEM/build/latest/generated -type f 2> /dev/null) >| $_filelist
 fi
@@ -144,7 +146,7 @@ command sort -u $_filelist > /tmp/$$; command mv /tmp/$$ $_filelist
 # :CtrlPTags gets really slow with a large tag file containing lots of info so I'm restricting to what's strictly necessary
 # NOTE: Most options in --fields and --c++-kinds are enabled/disabled by default and have not been specified.
 #       This is the full list of options: --fields=+aS-fiKklmnstzrRZEx --c++-kinds=+cdefgmstv-lnpuxzLN
-~kshenoy/bin/ctags --languages=c,c++ --fields=+a-fkst --c++-kinds=-nu -L $_filelist -f ${_out_dir}/.tags 2> /dev/null
+ctags --languages=c,c++ --fields=+a-fkst --c++-kinds=-nu -L $_filelist -f ${_out_dir}/.tags 2> /dev/null
 
 # Clean-up the tags file by deleting fold markers etc.
 if [[ -f ${_out_dir}/.tags ]]; then
