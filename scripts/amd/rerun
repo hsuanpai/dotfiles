@@ -501,7 +501,7 @@ if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   ## Wait till model has been built successfully
   print "\n[ BUILD ]\n";
   print "    Waiting till the $opts{'model'} is built...\n";
-  system("~kshenoy/bin/spin --model $opts{'model'}");
+  system("~kshenoy/bin/spin --model $opts{'model'}") unless $opts{'test'};
 }
 
 
