@@ -417,6 +417,11 @@ if ($opts{'recompile'}) {
       }
     }
 
+    if (`lsb_release -d` =~ /Maipo/) {
+      print "    INFO: recompile is not supported on RHEL7 machines yet\n";
+      $opts{'recompile_files'} = ();
+    }
+
     # Uniquify recompile_files by their basename
     # Enclose map in [...] to return an array reference instead of a plain array
     $opts{'recompile_files'} = [ uniq(map(basename($_, ('.h', '.cc', '.cpp', '.c')), grep(/\.(h|cc|cpp|c)$/, @{$opts{'recompile_files'}}))) ];
@@ -633,8 +638,13 @@ if ( $opts{'run'} ) {
   ## Include/Exclude waves
   if ( $opts{'fsdb'} == 0 ) {
     $opts{'cmd'} =~ s/-p fsdb//;
-  } elsif ( $opts{'fsdb'} == 1 ) {
-    $opts{'cmd'} =~ s/(-p\s+\S+\s+)+/$& -p fsdb / if ( $opts{'cmd'} !~ /-p\s+fsdb/ );
+  } elsif ($opts{'fsdb'} && ($opts{'cmd'} !~ /-p\s+fsdb/)) {
+    my $regex_plugins= qr/(-p\s+\S+\s+)+/;
+    if ($opts{'cmd'} =~ /$regex_plugins/) {
+      $opts{'cmd'} =~ s/$regex_plugins/$& -p fsdb /;
+    } else {
+      $opts{'cmd'} .= " -p fsdb";
+    }
   }
 
   ## Disable Test.log compression

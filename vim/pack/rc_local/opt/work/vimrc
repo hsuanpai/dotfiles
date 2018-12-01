@@ -18,6 +18,7 @@ endfunction
 
 set isfname+={,}      " This will allow vim to understand env vars with curly braces that are used in bootenv.modulefile
 set isfname-==
+set formatprg=clang-format\ -style=file
 
 
 if ($STEM != "")
