@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Generate a list of relevant files
 pfls() {
   [[ -z $STEM ]] && return

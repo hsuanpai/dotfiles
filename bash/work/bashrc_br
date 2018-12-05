@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Dynamic variables (Recomputed everytime path changes via preprompt or equivalent)
 dyn_vars() {
   export ch="${ANCHOR_ch-ch}"

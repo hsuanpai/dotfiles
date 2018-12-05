@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Aliases
 alias rg=release_gate
 

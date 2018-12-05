@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-
+#
+# TODO:
+# * Accept one or more files and update tags only for those files.
+#   ctags doesn't support true update so the next best thing is to delete all lines matching the file and then 
+#   use ctags -a to append to the tags file
+#
 # NOTE: true and false are not bools but simple executables in /bin which return true and false respectively
 
 ## Default variables                                                                                                {{{1

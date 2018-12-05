@@ -50,12 +50,20 @@ augroup AMD
 augroup END
 
 
-"" Fat finger forgiveness
-abbrev resposne response
-abbrev Resposne Response
-
-
 "" Project-specific config
+if ($STEM != "")
+  if filereadable(expand("$STEM/.filelist"))
+    let g:ctrlp_user_command.types.3 = [ 'P4CONFIG', 'cd %s; sed "s:$STEM/::" $STEM/.filelist' ]
+  else
+    echom "WARN: Unable to find filelist in " . $STEM
+  endif
+endif
+
 if filereadable(expand("$PROJ_HOME/.vimrc"))
   source $PROJ_HOME/.vimrc
 endif
+
+
+"" Fat finger forgiveness
+abbrev resposne response
+abbrev Resposne Response
