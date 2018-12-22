@@ -228,39 +228,16 @@ pfls() {                                                                        
   cat <(cd $STEM; p4 have ... 2> /dev/null) <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) | awk {'print $3'} >| $STEM/.filelist
 }
 
-# Find a file
-pff() {                                                                                                            #{{{2
-  ag --nocolor --no-numbers "$@" ${STEM:+$STEM/}.filelist
+# ripgrep + perforce                                                                                               #{{{2
+pff() {
+  command rg --no-line-number --no-heading --color=never "$@" ${STEM:+$STEM/}.filelist
 }
 p4f() {
-  p4 have $STEM/... | ag --nocolor --no-numbers "$@"
+  command p4 have $STEM/... | command rg --no-line-number --no-heading --color=never "$@"
 }
 
-# Grep from the list of files in the repo
-pfg() {                                                                                                            #{{{2
-  local _filter='""'
-  local _opts=()
-  while (( $# > 0 )); do
-    if [[ "$opt" == "-g" ]]; then
-      _filter="$2"
-      shift 2
-    else
-      _opts+=("$1")
-      shift
-    fi
-  done
-
-  # If $_filter is empty, it acts as cat
-  echo -e "command rg ${_opts[@]} \$(command grep -P $_filter ${STEM:+$STEM/}.filelist)\n"
-  command rg "${_opts[@]}" $(command grep -P $_filter ${STEM:+$STEM/}.filelist) 2> /dev/null
-}
+alias pfg='rgf --files-from=$STEM/.filelist'
 # }}}2
-
-# -g switch was borrowed from ag
-alias pfgtc='pfg --cpp'
-alias pfgtch="pfg -g '\.(h|hh|hpp|tpp)$'"
-alias pfgtcc="pfg -g '\.(c|cc|cpp|C|CC)$'"
-alias pfgtsbs="pfg -g '\.sbs$'"
 
 
 
