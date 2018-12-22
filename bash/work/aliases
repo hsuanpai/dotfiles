@@ -19,9 +19,9 @@
 gvim_server() {
   # There is no way to automatically launch a server if one doesn't exist when using --remote-send
   # Thus, check if --remote-send has been passed in and if a server doesn't exist create one
-  echo "$*"
+  # NOTE: ${STEM^^} converts $STEM to uppercase. vim servernames are always in uppercase
   if [[ "$*" =~ --remote-send ]] && [[ -n "$STEM" ]] &&
-     [[ ! $(command vim --serverlist | command grep "$STEM" 2> /dev/null) ]]; then
+     [[ ! $(command vim --serverlist | command grep "${STEM^^}" 2> /dev/null) ]]; then
     gvim --servername "$STEM"
   fi
   gvim ${STEM:+--servername $STEM} "$@"
@@ -109,11 +109,12 @@ alias rg='release_gate -gui'
 alias rgd='release_gate -donate'
 alias rgg='release_gate_gui'
 rgfq() {
-  local _fq=$(command grep FAILED $STEM/release_gate_tmp/release_gate.log | command awk '{print $1}' |
-              command sed -r -e 's/(build|sim)_/-/' -e 's/_(m)?rg(\w*)\.[0-9]+$/_\1rg\2/' |
-              command paste -s -d' ')
-  echo -e "rg -noauto $_fq\n"
-  rg -noauto $_fq
+  command grep FAILED $STEM/release_gate_tmp/release_gate.log |
+  command awk '{print $1}' |
+  command sed -r -e 's/(build|sim)_/-/' -e 's/_(m)?rg(\w*)\.[0-9]+$/_\1rg\2/' |
+  command paste -s -d' '
+  # echo -e "rg -noauto $_fq\n"
+  # rg -noauto $_fq
 }
 
 rgre() {
@@ -225,7 +226,12 @@ pful() {                                                                        
 # Generate a list of relevant files
 pfls() {                                                                                                           #{{{2
   [[ -z $STEM ]] && return 1
-  cat <(cd $STEM; p4 have ... 2> /dev/null) <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) | awk {'print $3'} >| $STEM/.filelist
+
+  cat \
+    <(cd $STEM; p4 have ... 2> /dev/null) \
+    <(cd $STEM; p4 opened ... 2> /dev/null | command grep add \
+      | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
+    | command awk '{print $3}' >| $STEM/.filelist
 }
 
 # ripgrep + perforce                                                                                               #{{{2
@@ -420,7 +426,7 @@ __wa_setup() {                                                                  
   source ~/.dotfiles/bash/aliases && source ~/.dotfiles/bash/bashrc-func && echo Sourced aliases and functions
 
   [[ -z "$STEM" ]] && return
-  for proj in 'AS|ASPEN' 'AH|ASPEN_HIGHLANDS' 'BR|BRECKENRIDGE'; do
+  for proj in 'AS|ASPEN' 'AH|ASPEN_HIGHLANDS' 'BR|BRECKENRIDGE' 'NV21_EL3'; do
     if [[ $STEM =~ /proj/ch_func_dev[[:digit:]]/($proj) ]]; then
       export PROJ_HOME=$(sed -r -e "s:(/proj/ch_func_dev[[:digit:]]?/($proj)/).*:\1:" <<< "$STEM")$(whoami)
       break
@@ -570,3 +576,9 @@ wtff() {
   model=`basename ${1%_rg.build.log}`
   wtf -m $model
 }
+
+
+for i in $PROJ_HOME/.bashrc; do
+  # Using an explicit if to prevent it from having a non-zero exit status if file doesn't exist
+  if [[ -f ${i} ]]; then . ${i} && echo "Sourced ${i}"; fi
+done

@@ -32,8 +32,9 @@ pfls() {
     <(cd $ANCHOR_aspen_libs; p4 have ... 2> /dev/null) \
     <(cd $ANCHOR_aspen_regs; p4 have ... 2> /dev/null) \
     <(cd $ANCHOR_aspen_tools; p4 have ... 2> /dev/null) \
-    <(cd $STEM; p4 opened ... 2> /dev/null | \
-      command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
     <(cd $ANCHOR_avf; p4 have ... 2> /dev/null) \
+    <(cd $ANCHOR_br_x3d; p4 have ... 2> /dev/null) \
+    <(cd $ANCHOR_br_macros; p4 have ... 2> /dev/null) \
+    <(cd $STEM; p4 opened ... 2> /dev/null | command grep add | command sed "s/#.*//" | command xargs -I{} -n1 p4 where {}) \
     | command grep -v "/_env/" | command awk "{print \$3}" >| $STEM/.filelist
 }
