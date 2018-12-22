@@ -94,7 +94,7 @@ $Data::Dumper::Sortkeys = 1;
 ##======================================================================================================================
 ## Option Handling                                                                                                  {{{1
 ##======================================================================================================================
-## Default values for options _____________________________________________________________________________________ {{{2
+## Default values for options ------------------------------------------------------------------------------------- {{{2
 my %opts = (
   'add'                   => "",
   'agg_dump_f'            => 0,
@@ -244,7 +244,7 @@ print Dumper(\%opts) if $opts{'verbose'};
 ## 4. Build the model
 ## 5. Sanitize and construct the final CMD string
 
-## Identify the Source _________________________________________________________________________________________________
+## Identify the Source -------------------------------------------------------------------------------------------------
 ## --cmd > ljd file | run_job file
 if ( $opts{'cmd'} eq "" ) {
   if ( `grep -s jobspec $opts{'file'}` ) {
@@ -275,9 +275,10 @@ if ($repo =~ m{^//depot/navi21_el3/}) {
 if ($opts{'ljd'}) {
   $opts{'remote'} = 0;
   $opts{'lsf'} = 0;
+  $opts{'fsdb'} = 0;
 }
 
-## Get the command _____________________________________________________________________________________________________
+## Get the command -----------------------------------------------------------------------------------------------------
 if (  (  (  $opts{'build'}
          || $opts{'recompile'}
          || $opts{'clean'}
@@ -303,7 +304,7 @@ if (  (  (  $opts{'build'}
 chomp( $opts{'cmd'} );
 
 
-## Identify the model __________________________________________________________________________________________________
+## Identify the model --------------------------------------------------------------------------------------------------
 if ( $opts{'ljd'} ) {
   ( my $ljd_model ) = `grep -s -m 1 '<model>' $opts{'file'}` =~ /<model>([^<]+)<\/model>/;
   if ( $opts{'model'} eq "" ) {
@@ -334,7 +335,7 @@ if ($opts{'model'} =~ "tb_l3") {
 }
 
 
-## Include/Exclude the amdmsg_config.yaml file _________________________________________________________________________
+## Include/Exclude the amdmsg_config.yaml file -------------------------------------------------------------------------
 if ($opts{'yaml'} >= 0) {
   ## Copy only if the yaml does not exist or --yaml is forced.
   if (  (  ($opts{'yaml'} > 0)
@@ -350,7 +351,7 @@ if ($opts{'yaml'} >= 0) {
   system('\rm amdmsg_config.yaml 2> /dev/null') unless $opts{'test'};
 }
 
-## Build locally? ______________________________________________________________________________________________________
+## Build locally? ------------------------------------------------------------------------------------------------------
 if (  (  ($opts{'buildloc'} == 1)
       && ($opts{'builddir'} eq "")
       )
@@ -370,7 +371,7 @@ $opts{'builddir'} = "$ENV{'STEM'}/build" if ($opts{'builddir'} eq "");
 system("command rm $opts{'builddir'}/build/$opts{'model'}/BUILD_SUCCEEDED 2> /dev/null");
 
 
-## Recompile ___________________________________________________________________________________________________________
+## Recompile -----------------------------------------------------------------------------------------------------------
 if ($opts{'recompile'}) {
   print "[ RECOMPILE ]\n";
 
@@ -455,7 +456,7 @@ if ($opts{'recompile'}) {
 }
 
 
-## Build/Clean _________________________________________________________________________________________________________
+## Build/Clean ---------------------------------------------------------------------------------------------------------
 if ($opts{'clean'} || $opts{'clean_all'} || $opts{'build'}) {
   print "\n[ BUILD ]\n";
   system "\rm recompile.log build_$opts{'model'}.log $opts{'builddir'}/$opts{'model'}/BUILD_SUCCEEDED 2> /dev/null";
@@ -523,7 +524,7 @@ if (  (  $opts{'build'}
 
 
 
-## Run Job _____________________________________________________________________________________________________________
+## Run Job -------------------------------------------------------------------------------------------------------------
 if ( $opts{'run'} ) {
   print "\n[ RUN JOB ]\n";
   ## Remove junk arguments
@@ -556,12 +557,12 @@ if ( $opts{'run'} ) {
   }
 
   ## Add/Delete options to/from the CMD
-  if ( $opts{'delete'} ne "" ){
+  if ( $opts{'delete'} ne "" ) {
     print "    Removing option: '$opts{'delete'}'\n";
     ## We use \Q and \E to escape any special characters such as in '+DUMP'
     $opts{'cmd'} =~ s/\Q$opts{'delete'}\E//;
   }
-  if ($opts{'add'} ne ""){
+  if ($opts{'add'} ne "") {
     print "    Adding option: '$opts{'add'}'\n";
     $opts{'fsdb'} |= ( 0 | ( $opts{'add'} =~ s/-p\s*fsdb// ));
     $opts{'cmd'}  .= " " . $opts{'add'};
