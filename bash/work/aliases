@@ -487,12 +487,16 @@ BUGS
 
 # Calling these as gpp/clangpp as I don't want it to interfere with my regular build flow
 gpp() {
-  g++ -Wall -Wextra -std=c++14 -L${GCC_HOME}/lib \
-    -L${BOOST_HOME}/lib -I${BOOST_HOME}/include -Wl,-rpath ${BOOST_HOME}/lib "$@"
+  g++ -Wall -Wextra -std=c++14 \
+    -L${GCC_HOME}/lib -L${BOOST_HOME}/lib -L${HOME}/.local/lib \
+    -I${BOOST_HOME}/include -I${HOME}/.local/include \
+    -Wl,-rpath ${BOOST_HOME}/lib "$@"
 }
 clangpp() {
-  clang++ -Wall -Wextra -std=c++14 -L${LLVM_HOME}/lib \
-    -L${BOOST_HOME}/lib -I${BOOST_HOME}/include -Wl,-rpath ${BOOST_HOME}/lib "$@"
+  clang++ -Wall -Wextra -std=c++14 \
+    -L${LLVM_HOME}/lib -L${BOOST_HOME}/lib -L${HOME}/.local/lib \
+    -I${BOOST_HOME}/include -I${HOME}/.local/include \
+    -Wl,-rpath ${BOOST_HOME}/lib "$@"
 }
 
 psig() {
