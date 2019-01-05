@@ -1,7 +1,23 @@
 "
 " LOCAL SETTINGS
 "
+set isfname+={,}      " This will allow vim to understand env vars with curly braces that are used in bootenv.modulefile
+set isfname-==
+
+
 function! s:SetLocalSettings(filename)
+  if ($STEM == "")
+    return
+  endif
+
+  set path=.
+  set path+=$STEM/build/latest/generated/**
+  set path+=$STEM/build/latest/fake_c_incl
+  set path+=$STEM/ch/**
+  set path+=$STEM/import/avf/**
+  set path+=/usr/local/include,/usr/include
+  set path+=**;
+
   if (a:filename =~ '\v/ch/verif/l3/arch_l3')
     return
   endif
@@ -13,22 +29,11 @@ function! s:SetLocalSettings(filename)
     setlocal colorcolumn+=101
     let b:OrigamiFoldAtCol=96
   endif
-endfunction
 
-
-set isfname+={,}      " This will allow vim to understand env vars with curly braces that are used in bootenv.modulefile
-set isfname-==
-set formatprg=clang-format\ -style=file
-
-
-if ($STEM != "")
-  set path=.
-  set path+=$STEM/build/latest/generated/**
-  set path+=$STEM/build/latest/fake_c_incl
-  set path+=$STEM/ch/**
-  set path+=$STEM/import/avf/**
-  set path+=/usr/local/include,/usr/include
-  set path+=**;
+  let l:ext=fnamemodify(a:filename, ':r')
+  if (l:ext == "txl" || l:ext == "rdl" || l:ext == "xdl")
+    execute "set filetype=ruby." . l:ext
+  endif
 
   let g:ale_cpp_clang_options = get(g:, 'ale_cpp_clang_options', "")
   if ($BOOST_HOME != "")
@@ -38,15 +43,28 @@ if ($STEM != "")
     let g:ale_cpp_clang_options .= " -I ${GCC_HOME}/include"
   endif
   let g:ale_cpp_clang_options .= " -I $STEM/build/latest/fake_c_incl"
-endif
+endfunction
+
+function! s:SetLocalSettingsCpp(filename)
+  if ($STEM == "")
+    return
+  endif
+
+  setl formatprg=clang-format\ -style=file
+
+  if (a:filename =~ '\v_if\.h')
+    let b:fswitchnames='/_if$//'
+  endif
+  if (a:filename =~ '\v_provider\.cc')
+    let b:fswitchnames='/_provider$//'
+  endif
+endfunction
 
 
 augroup AMD
   autocmd!
-  autocmd BufNewFile,BufRead *.txl,*.rdl,*.xdl execute "set filetype=ruby.".expand('<afile>:e')
-  autocmd BufNewFile,BufRead *                 call s:SetLocalSettings(expand('<afile>:p'))
-  autocmd BufNewFile,BufRead *_if.h            let b:fswitchfnames='/_if$//'
-  autocmd BufNewFile,BufRead *_provider.cc     let b:fswitchfnames='/_provider$//'
+  autocmd BufNewFile,BufRead *   call s:SetLocalSettings(expand('<afile>:p'))
+  autocmd FileType           cpp call s:SetLocalSettingsCpp(expand('<afile>:p'))
 augroup END
 
 
