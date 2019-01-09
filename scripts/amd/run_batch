@@ -1,40 +1,43 @@
-#!/bin/bash
-#
-# SYNTAX: run_batch <P4 dir> <Changelist>
-#   P4 Work area - The work area to run the sim in
-#   Changelist - The changelist to update to before running
+#!/usr/bin/env bash
 
 # Automatically exit script on error
 set -e
 
+# Defaults
+jobspec=""
+multiplier=1
+num_sims_in_jobspec=100
+
 function print_help() {
   echo "Usage:"
-  echo "    `basename $0` [OPTIONS]"
+  echo "  `basename $0` [OPTIONS] <JOBSPEC>"
   echo
   echo "Options:"
-  echo "    -h    Print this help"
-  echo "    -n    Number of jobs to submit"
+  echo "  -h    Print this help"
+  echo "  -n    Number of sims in the jobspec (Default=$num_sims_in_jobspec)"
+  echo "  -m    Number of times to run the jobspec (Default=$multiplier)"
 }
 
-# Defaults
-_num_sims=100
-_jobspec=""
-
-while getopts ":n:h" opt; do
+while getopts ":m:n:h" opt; do
   case $opt in
+    m)
+      multiplier=${OPTARG}
+      ;;
     n)
-      _num_sims=${OPTARG}
+      num_sims_in_jobspec=${OPTARG}
       ;;
     h)
       print_help
       exit
       ;;
     :)
-      echo "  ERROR: Option -${OPTARG} requires an argument" >&2
+      echo -e "ERROR: Option -${OPTARG} requires an argument\n" >&2
+      print_help
       exit 1
       ;;
     \?)
-      echo "  ERROR: Invalid option: -${OPTARG}" >&2
+      echo -e "ERROR: Invalid option: -${OPTARG}\n" >&2
+      print_help
       exit 1
       ;;
   esac
@@ -43,15 +46,18 @@ done
 # Remove all option arguments and leave "$@" with just the non-option arguments
 shift $((OPTIND-1))
 
-_jobspec="$1"
+if (( $# == 0 )); then
+  echo -e "ERROR: Jobspec not specified\n" >&2
+  print_help
+fi
+jobspec="$1"
 
-_batch=0
-while (( $_batch < 10 )); do
-  if (( $(lsf_bjobs | wc -l) < 875 )); then
-    ~/bin/rerun -f ${_jobspec} &
-    ((++_batch));
-    sleep 60;
-  else
-    sleep 300;
+batch=0
+while (( $batch < $multiplier )); do
+  if (( $(lsf_bjobs | wc -l) < $(( 975 - $num_sims_in_jobspec )) )); then
+    ~kshenoy/bin/rerun -f ${jobspec} &
+    ((++batch));
   fi;
+
+  sleep 300;
 done
