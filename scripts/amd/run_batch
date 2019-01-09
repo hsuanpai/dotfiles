@@ -8,56 +8,74 @@ jobspec=""
 multiplier=1
 num_sims_in_jobspec=100
 
-function print_help() {
-  echo "Usage:"
-  echo "  `basename $0` [OPTIONS] <JOBSPEC>"
-  echo
-  echo "Options:"
-  echo "  -h    Print this help"
-  echo "  -n    Number of sims in the jobspec (Default=$num_sims_in_jobspec)"
-  echo "  -m    Number of times to run the jobspec (Default=$multiplier)"
+function print_usage() {
+  echo "
+Usage:
+  `basename $0` [OPTIONS] <JOBSPEC>
+
+Options:
+  -h    Print this help
+  -j    Jobspec to run
+  -n    Number of sims in the jobspec (Default=$num_sims_in_jobspec)
+  -m    Number of times to run the jobspec (Default=$multiplier)"
+
+  exit $1
 }
 
-while getopts ":m:n:h" opt; do
+function print_help() {
+  echo -e "Description:
+  Submits a batch of the specified jobspec serially while ensuring that the total number of LSF Jobs doesn't exceed 975.
+  It does this by polling the number of LSF jobs every 5 mins and launching another run of the jobspec if this number
+  drops below (975 - n) where n is the number of jobs in the jobspec"
+
+  print_usage 0
+}
+
+while getopts ":j:m:n:h" opt; do
   case $opt in
+    h)
+      print_help
+      ;;
+    j)
+      jobspec=${OPTARG}
+      ;;
     m)
       multiplier=${OPTARG}
       ;;
     n)
       num_sims_in_jobspec=${OPTARG}
       ;;
-    h)
-      print_help
-      exit
-      ;;
     :)
-      echo -e "ERROR: Option -${OPTARG} requires an argument\n" >&2
-      print_help
-      exit 1
+      echo "ERROR: Option -${OPTARG} requires an argument" >&2
+      print_usage 1
       ;;
     \?)
-      echo -e "ERROR: Invalid option: -${OPTARG}\n" >&2
-      print_help
-      exit 1
+      echo "ERROR: Invalid option: -${OPTARG}" >&2
+      print_usage 1
       ;;
   esac
 done
 
+if [[ -z "$jobspec" ]]; then
+  echo "ERROR: Jobspec not specified" >&2
+  print_usage 1
+fi
+
 # Remove all option arguments and leave "$@" with just the non-option arguments
 shift $((OPTIND-1))
-
-if (( $# == 0 )); then
-  echo -e "ERROR: Jobspec not specified\n" >&2
-  print_help
-fi
-jobspec="$1"
+# echo "DEBUG: Remaining arguments: $@"
 
 batch=0
 while (( $batch < $multiplier )); do
   if (( $(lsf_bjobs | wc -l) < $(( 975 - $num_sims_in_jobspec )) )); then
     ~kshenoy/bin/rerun -f ${jobspec} &
     ((++batch));
-  fi;
 
-  sleep 300;
+    # If we were able to launch a jobspec, then try again shortly; don't wait for 5 whole mins
+    # This is useful if we call this script when no other jobs are running/a whole bunch of jobs complete at once.
+    # 60s is just so that LSF can update its job count correctly
+    sleep 60;
+  else
+    sleep 300;
+  fi;
 done
