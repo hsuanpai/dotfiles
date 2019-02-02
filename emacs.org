@@ -666,6 +666,7 @@ I'm using [[https://www.gnu.org/software/emacs/manual/html_mono/rcirc.html][rcir
     (rcirc-time-format "[%H:%M] ")
     (rcirc-fill-column 'window-text-width)
     (rcirc-default-nick "kshenoy")
+    (rcirc-server-alist '(("irc.freenode.net" :channels ("#emacs" "#vim"))))
     (rcirc-prompt "%t> ")
 #+end_src
 
@@ -684,14 +685,14 @@ Use better colors. I should probably make this a part of the theme but I'm going
   (rcirc-url ((t (:inherit org-link)))))
 #+end_src
 
-*** Don't display names on Join/Leave
+*** Don't display names when joining a channel
 :PROPERTIES:
 :ID:       ce06325b-1e07-476a-8659-6b5dd6d1b4ee
 :CREATED:  [2019-01-31 Thu 08:02]
 :END:
 https://www.emacswiki.org/emacs/rcircNoNamesOnJoin
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle no
   (defvar rcirc-hide-names-on-join t
     "Non-nil if nick names list should be hidden when joining a channel.")
 
@@ -2108,7 +2109,7 @@ I'm using eyebrowse to switch window layouts. One of the layouts is just org-age
 #+begin_src emacs-lisp
   (setq org-agenda-window-setup 'only-window
         ;; org-agenda-restore-windows-after-quit t
-        setq org-agenda-compact-blocks t)
+        org-agenda-compact-blocks t)
 #+end_src
 
 By default, the agenda only shows the next 7 days. I want to see the previous 7 days as well just in case I missed something.
@@ -2182,7 +2183,6 @@ I want my agenda to consist of 3 sections
          (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))))
 #+end_src
 
-Maybe I'll want to split this later into two sections - normal and low priority but this is good for now
 #+begin_src emacs-lisp :noweb-ref org-agenda-daily-alltodo :tangle no
   (alltodo ""
            ((org-agenda-overriding-header "ALL normal priority tasks:")
@@ -2190,6 +2190,8 @@ Maybe I'll want to split this later into two sections - normal and low priority 
                                            (my-org-skip-subtree-if-priority ?A)
                                            (org-agenda-skip-if nil '(scheduled deadline))))))
 #+end_src
+
+Maybe I'll split the last one later into two sections - normal and low priority but this is good for now
 
 ***** Work agenda
 :PROPERTIES:
@@ -2215,10 +2217,6 @@ These settings will apply to all the cmd-types in this custom-command so all 3 s
 
 **** Keybindings
 [[id:ebbf9970-d072-4b59-bcaa-5f4b3d71a7d7][General org keybindings]]
-#+begin_src emacs-lisp
-  :config
-#+end_src
-
 Open the custom "Daily agenda and all TODOs" directly. Based on [[http://emacs.stackexchange.com/a/868/9690][Emacs StackExchange]].
 #+begin_src emacs-lisp
   (bind-key* "<f12>" '(lambda (&optional arg) (interactive "P")(org-agenda arg "w")))
